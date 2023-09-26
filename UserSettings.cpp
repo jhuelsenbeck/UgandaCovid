@@ -1,4 +1,5 @@
 #include <iostream>
+#include <vector>
 #include "Msg.hpp"
 #include "UserSettings.hpp"
 

@@ -1,6 +1,7 @@
 #include "Msg.hpp"
 #include "Node.hpp"
 #include "Tree.hpp"
+#include <cmath>
 #include <fstream>
 #include <iostream>
 

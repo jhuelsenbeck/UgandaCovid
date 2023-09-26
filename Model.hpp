@@ -1,6 +1,7 @@
 #ifndef Model_hpp
 #define Model_hpp
 
+#include <cmath>
 #include <iostream>
 #include "Threads.hpp"
 class RateMatrix;

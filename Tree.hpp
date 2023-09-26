@@ -2,6 +2,7 @@
 #define Tree_hpp
 
 #include <string>
+#include <vector>
 class Node;
 
 
