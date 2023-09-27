@@ -3,12 +3,12 @@
 
 
 
-RateMatrix::RateMatrix(const RateMatrix& m) : DoubleMatrix(m) {
+RateMatrix::RateMatrix(const RateMatrix& m) : RealMatrix(m) {
 
     this->areas = m.areas;
 }
 
-RateMatrix::RateMatrix(std::vector<std::string> a) : DoubleMatrix(a.size(),a.size()) {
+RateMatrix::RateMatrix(std::vector<std::string> a) : RealMatrix(a.size(),a.size()) {
 
     areas = a;
     
@@ -25,22 +25,22 @@ RateMatrix& RateMatrix::operator=(const RateMatrix& rhs) {
 
     if (this != &rhs)
         {
-        DoubleMatrix::copy(rhs);
+        RealMatrix::copy(rhs);
         }
     return *this;
 }
 
-void RateMatrix::calculateStationaryFrequencies(double* f) {
+void RateMatrix::calculateStationaryFrequencies(real* f) {
 
     int n = (int)numRows;
     
 	// transpose the rate matrix (qMatrix) and put into QT
-    auto QT = cache.pushMatrix(n); // replaces DoubleMatrix QT(n, n);
+    auto QT = cache.pushMatrix(n); // replaces RealMatrix QT(n, n);
 	cache.transpose(*this, *QT);
 
 	// compute the LU decomposition of the transposed rate matrix
-    auto L = cache.pushMatrix(n); // replaces DoubleMatrix L(n, n);
-	auto U = cache.pushMatrix(n); // replaces DoubleMatrix U(n, n);
+    auto L = cache.pushMatrix(n); // replaces RealMatrix L(n, n);
+	auto U = cache.pushMatrix(n); // replaces RealMatrix U(n, n);
 	cache.computeLandU(*QT, *L, *U);
 	
 	// back substitute into z = 0 to find un-normalized stationary frequencies
@@ -48,7 +48,7 @@ void RateMatrix::calculateStationaryFrequencies(double* f) {
 	f[n-1] = 1;
 	for (int i=n-2; i>=0; i--)
 		{
-		double dotProduct = 0.0;
+		real dotProduct = 0.0;
 		for (int j=i+1; j<n; j++)
 			dotProduct += (*U)(i,j) * f[j];
 		f[i] = (0 - dotProduct) / (*U)(i,i);
@@ -57,18 +57,18 @@ void RateMatrix::calculateStationaryFrequencies(double* f) {
     cache.popMatrix(3);
 		
 	// normalize the solution vector
-	double sum = 0.0;
+	real sum = 0.0;
 	for (int i=0; i<n; i++)
 		sum += f[i];
 	for (int i=0; i<n; i++)
 		f[i] /= sum;
 }
 
-void RateMatrix::set(double* pi, double* r) {
+void RateMatrix::set(real* pi, real* r) {
 
     // set off diagonal elements
-    double* rPtr = r;
-    double averageRate = 0.0;
+    real* rPtr = r;
+    real averageRate = 0.0;
     for (int i=0; i<numRows; i++)
         {
         for (int j=i+1; j<numCols; j++)
@@ -84,7 +84,7 @@ void RateMatrix::set(double* pi, double* r) {
     // set diagonal elements
     for (int i=0; i<numRows; i++)
         {
-        double sum = 0.0;
+        real sum = 0.0;
         for (int j=0; j<numCols; j++)
             {
             if (i != j)
@@ -94,7 +94,7 @@ void RateMatrix::set(double* pi, double* r) {
         }
 
     // rescale such that the average rate is one
-    double factor = 1.0 / averageRate;
+    real factor = 1.0 / averageRate;
     for (auto p=begin(), endP=end(); p != endP; p++)
         (*p) *= factor;
 }

@@ -73,7 +73,7 @@ void ThreadPool::Wait(void) {
 //        std::unique_lock lock(WaitMutex);
 //        WaitCondition.wait(lock);
 
-        // According to the documentation, this needs to be double-checked because of "spurious" wakeups
+        // According to the documentation, this needs to be real-checked because of "spurious" wakeups
 
 //        size_t count;
 //        {

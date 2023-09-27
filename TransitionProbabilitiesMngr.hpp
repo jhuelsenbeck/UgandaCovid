@@ -28,7 +28,7 @@ class TransitionProbabilitiesMngr {
         TransitionProbabilities*    getTiProb(int brlen);
         TransitionProbabilityPair*  getTiPair(int brlen);
         void                        switchActive(void);
-        void                        updateTransitionProbabilities(double rate);
+        void                        updateTransitionProbabilities(real rate);
                 
     private:
         Model*                      modelPtr;

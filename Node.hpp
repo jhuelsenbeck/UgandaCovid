@@ -3,6 +3,7 @@
 
 #include <set>
 #include <string>
+#include "jph.hpp"
 class TransitionProbabilityPair;
 
 
@@ -16,8 +17,8 @@ class Node {
         Node*                       getAncestor(void) { return ancestor; }
         int                         getAreaId(void) { return areaId; }
         int                         getBrlen(void) { return brlen; }
-        double*                     getConditionalLikelihood(void) { return cl; }
-        double*                     getConditionalLikelihoodEnd(void) { return clEnd; }
+        real*                       getConditionalLikelihood(void) { return cl; }
+        real*                       getConditionalLikelihoodEnd(void) { return clEnd; }
         std::set<Node*>&            getDescendants(void) { return descendants; }
         int                         getIndex(void) { return index; }
         bool                        getIsTip(void) { return isTip; }
@@ -30,8 +31,8 @@ class Node {
         void                        setAncestor(Node* p) { ancestor = p; }
         void                        setAreaId(int x) { areaId = x; }
         void                        setBrlen(int x) { brlen = x; }
-        void                        setConditionalLikelihood(double* p) { cl = p; }
-        void                        setConditionalLikelihoodEnd(double* p) { clEnd = p; }
+        void                        setConditionalLikelihood(real* p) { cl = p; }
+        void                        setConditionalLikelihoodEnd(real* p) { clEnd = p; }
         void                        setIndex(int x) { index = x; }
         void                        setIsTip(bool tf) { isTip = tf; }
         void                        setName(std::string s) { name = s; }
@@ -40,8 +41,8 @@ class Node {
         
     private:
         Node*                       ancestor;
-        double*                     cl;
-        double*                     clEnd;
+        real*                       cl;
+        real*                       clEnd;
         TransitionProbabilityPair*  tiPair;
         int                         index;
         int                         offset;

@@ -3,12 +3,12 @@
 
 
 
-TransitionProbabilities::TransitionProbabilities(const TransitionProbabilities& m) : DoubleMatrix(m) {
+TransitionProbabilities::TransitionProbabilities(const TransitionProbabilities& m) : RealMatrix(m) {
 
     brlen = 0;
 }
 
-TransitionProbabilities::TransitionProbabilities(size_t d) : DoubleMatrix(d, d) {
+TransitionProbabilities::TransitionProbabilities(size_t d) : RealMatrix(d, d) {
 
     brlen = 0;
 }
@@ -17,7 +17,7 @@ TransitionProbabilities::~TransitionProbabilities(void) {
 
 }
 
-int logBase2Plus1(double x) {
+int logBase2Plus1(real x) {
 
 	int j = 0;
 	while(x > 1.0 - 1.0e-07)
@@ -28,9 +28,9 @@ int logBase2Plus1(double x) {
 	return (j);
 }
 
-int setQvalue(double tol) {
+int setQvalue(real tol) {
 	
-	double x = pow(2.0, 3.0 - (0 + 0)) * factorial(0) * factorial(0) / (factorial(0+0) * factorial(0+0+1));
+	real x = pow(2.0, 3.0 - (0 + 0)) * factorial(0) * factorial(0) / (factorial(0+0) * factorial(0+0+1));
 	int qV = 0;
 	while (x > tol)
 		{
@@ -40,9 +40,9 @@ int setQvalue(double tol) {
 	return (qV);
 }
 
-double factorial(int x) {
+real factorial(int x) {
 	
-	double fac = 1.0;
+	real fac = 1.0;
 	for (int i=0; i<x; i++)
 		fac *= (i+1);
 	return (fac);

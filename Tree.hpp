@@ -17,7 +17,7 @@ class Tree {
         Tree&               operator=(const Tree& rhs);
         std::vector<Node*>& getDownPassSequence(void) { return downPassSequence; }
         std::vector<Node*>& getInteriorDownPassSequence(void) { return interiorDownPassSequence; }
-        int                 getNumnodes(void) { return numNodes; }
+        int                 getNumNodes(void) { return numNodes; }
         Node*               getRoot(void) { return root; }
         void                print(void);
         void                setNumAreas(int x) { numAreas = x; }

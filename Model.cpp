@@ -53,38 +53,42 @@ Model::~Model(void) {
     delete q[0];
     delete q[1];
     delete tiMngr;
+    delete [] condLikes;
 }
 
 void Model::initializeConditionalLikelihoods(void) {
         
     size_t numAllocatedDoubles = 0;
-    size_t memSize = numStates * sizeof(double);
+    size_t numNodes = tree->getNumNodes();
+    size_t memSize = numNodes * numStates * sizeof(real);
     
+    // allocate the conditional likelihoods
+    condLikes = (real*)malloc(memSize);
+    if (!condLikes)
+        Msg::error("Failure to allocate conditional likelihood for tree");
+    memset(condLikes, 0, memSize);
+    
+    real* m = condLikes;
     std::vector<Node*>& dpSeq = tree->getDownPassSequence();
     for (auto p=dpSeq.begin(); p != dpSeq.end(); p++)
         {
-        // allocate and initialize the conditional likelihoods
-        double* condLikes = new double[memSize];
-        if (!condLikes)
-            Msg::error("Failure to allocate conditional likelihood for node " + std::to_string((*p)->getIndex()));
-            
-        for (int i=0; i<memSize; i++)
-            condLikes[i] = 0.0;
+        // initialize the conditional likelihoods
         if ((*p)->getIsTip() == true)
             {
             int areaId = (*p)->getAreaId();
             if (areaId != -1)
                 {
-                condLikes[areaId] = 1.0;
+                m[areaId] = 1.0;
                 }
             else
                 {
                 for (int i=0; i<numStates; i++)
-                    condLikes[i] = 1.0;
+                    m[i] = 1.0;
                 }
             }
-        (*p)->setConditionalLikelihood(condLikes);
-        (*p)->setConditionalLikelihoodEnd(condLikes+numStates);
+        (*p)->setConditionalLikelihood(m);
+        (*p)->setConditionalLikelihoodEnd(m+numStates);
+        m += numStates;
         numAllocatedDoubles += numStates;
         
         // set up the transition probability pair for the node
@@ -93,42 +97,46 @@ void Model::initializeConditionalLikelihoods(void) {
             Msg::error("Could not find transition probabilities for node " + std::to_string((*p)->getIndex()));
         (*p)->setTransitionProbabilityPair(tip);
         }
-    std::cout << "Successfully allocated a total of " << numAllocatedDoubles << " doubles for the conditional likelihoods" << std::endl;
+    if (m != condLikes + (numNodes*numStates))
+        Msg::warning("Something unexpected when setting up conditional likelihoods");
+    std::cout << "Successfully allocated a total of " << numAllocatedDoubles << " reals for the conditional likelihoods" << std::endl;
 
-    double lnL = lnLikelihood();
+    real lnL = lnLikelihood();
     std::cout << "lnL = " << lnL << std::endl;
+    // lnL = -1.75706e+07
+    // lnL = -1.75658e+07
 }
 
 #if 1
 
 // serial version of likelihood calculation
-double Model::lnLikelihood(void) {
+real Model::lnLikelihood(void) {
 
     auto begin = std::chrono::high_resolution_clock::now();
 
     // allocate a temporary vector for the sums
-    double* lnSum = (double*)malloc(numStates*sizeof(double));
-    double* lnSumEnd = lnSum + numStates;
+    real* lnSum = (real*)malloc(numStates*sizeof(real));
+    real* lnSumEnd = lnSum + numStates;
     
     // calculate the conditional likelihoods
     int activeTi = tiMngr->getActiveTiProb();
     std::vector<Node*>& dpSeq = tree->getInteriorDownPassSequence();
-    double lnFactor = 0.0;
+    real lnFactor = 0.0;
     for (auto p=dpSeq.begin(); p != dpSeq.end(); p++)
         {
-        for (double* v=lnSum; v != lnSumEnd; v++)
+        for (real* v=lnSum; v != lnSumEnd; v++)
             (*v) = 0.0;
             
         std::set<Node*>& pDesc = (*p)->getDescendants();
         for (Node* d : pDesc)
             {
-            double* P = d->getTransitionProbabilityPair()->tipr[activeTi]->begin();
-            double* clBegin = d->getConditionalLikelihood();
-            double* clEnd = d->getConditionalLikelihoodEnd();
-            for (double* s=lnSum; s != lnSumEnd; s++)
+            real* P = d->getTransitionProbabilityPair()->tipr[activeTi]->begin();
+            real* clBegin = d->getConditionalLikelihood();
+            real* clEnd = d->getConditionalLikelihoodEnd();
+            for (real* s=lnSum; s != lnSumEnd; s++)
                 {
-                double sum = 0.0;
-                for (double* L=clBegin; L != clEnd; L++)
+                real sum = 0.0;
+                for (real* L=clBegin; L != clEnd; L++)
                     {
                     sum += (*P) * (*L);
                     P++;
@@ -138,18 +146,18 @@ double Model::lnLikelihood(void) {
             }
             
         // rescale
-        double lnLargestCl = lnSum[0];
-        for (double* v=&lnSum[1]; v != lnSumEnd; v++)
+        real lnLargestCl = lnSum[0];
+        for (real* v=&lnSum[1]; v != lnSumEnd; v++)
             {
             if (*v > lnLargestCl)
                 lnLargestCl = *v;
             }
         lnFactor += lnLargestCl;
-        for (double* v=lnSum; v != lnSumEnd; v++)
+        for (real* v=lnSum; v != lnSumEnd; v++)
             *v -= lnLargestCl;
 
-        double* LP = (*p)->getConditionalLikelihood();
-        for (double* v=lnSum; v != lnSumEnd; v++)
+        real* LP = (*p)->getConditionalLikelihood();
+        for (real* v=lnSum; v != lnSumEnd; v++)
             {
             *LP = exp(*v);
             LP++;
@@ -163,9 +171,9 @@ double Model::lnLikelihood(void) {
         }
         
     // calculate likelihood
-    double* LR = tree->getRoot()->getConditionalLikelihood();
-    double* f = &pi[activePi][0];
-    double like = 0.0;
+    real* LR = tree->getRoot()->getConditionalLikelihood();
+    real* f = &pi[activePi][0];
+    real like = 0.0;
     for (int i=0; i<numStates; i++)
         {
         like += (*f) * (*LR);
@@ -184,21 +192,21 @@ double Model::lnLikelihood(void) {
 #else
 
 // threaded version
-double Model::lnLikelihood(void) {
+real Model::lnLikelihood(void) {
 
     auto begin = std::chrono::high_resolution_clock::now();
 
     // allocate a temporary vector for the sums
-    double* lnSum = (double*)malloc(numStates*sizeof(double));
-    double* lnSumEnd = lnSum + numStates;
+    real* lnSum = (real*)malloc(numStates*sizeof(real));
+    real* lnSumEnd = lnSum + numStates;
     
     // calculate the conditional likelihoods
     int activeTi = tiMngr->getActiveTiProb();
     std::vector<Node*>& dpSeq = tree->getInteriorDownPassSequence();
-    double lnFactor = 0.0;
+    real lnFactor = 0.0;
     for (auto p=dpSeq.begin(); p != dpSeq.end(); p++)
         {
-        for (double* v=lnSum; v != lnSumEnd; v++)
+        for (real* v=lnSum; v != lnSumEnd; v++)
             (*v) = 0.0;
             
         std::set<Node*>& pDesc = (*p)->getDescendants();
@@ -206,9 +214,9 @@ double Model::lnLikelihood(void) {
         auto task = tasks;
         for (Node* d : pDesc)
             {
-            double* P = d->getTransitionProbabilityPair()->tipr[activeTi]->begin();
-            double* clBegin = d->getConditionalLikelihood();
-            double* bottomClBegin = d->getBottomConditionalLikelihood();
+            real* P = d->getTransitionProbabilityPair()->tipr[activeTi]->begin();
+            real* clBegin = d->getConditionalLikelihood();
+            real* bottomClBegin = d->getBottomConditionalLikelihood();
 
             task->init((int)numStates, clBegin, bottomClBegin, P);
             threadPool->PushTask(task);
@@ -221,24 +229,24 @@ double Model::lnLikelihood(void) {
         // calculate log sums
         for (Node* d : pDesc)
             {
-            double* s = d->getBottomConditionalLikelihood();
-            for (double* v = lnSum; v != lnSumEnd; v++, s++)
+            real* s = d->getBottomConditionalLikelihood();
+            for (real* v = lnSum; v != lnSumEnd; v++, s++)
                 *v += *s;
             }
             
         // rescale
-        double lnLargestCl = lnSum[0];
-        for (double* v=&lnSum[1]; v != lnSumEnd; v++)
+        real lnLargestCl = lnSum[0];
+        for (real* v=&lnSum[1]; v != lnSumEnd; v++)
             {
             if (*v > lnLargestCl)
                 lnLargestCl = *v;
             }
         lnFactor += lnLargestCl;
-        for (double* v=lnSum; v != lnSumEnd; v++)
+        for (real* v=lnSum; v != lnSumEnd; v++)
             *v -= lnLargestCl;
 
-        double* LP = (*p)->getConditionalLikelihood();
-        for (double* v=lnSum; v != lnSumEnd; v++)
+        real* LP = (*p)->getConditionalLikelihood();
+        for (real* v=lnSum; v != lnSumEnd; v++)
             {
             *LP = exp(*v);
             LP++;
@@ -252,9 +260,9 @@ double Model::lnLikelihood(void) {
         }
         
     // calculate likelihood
-    double* LR = tree->getRoot()->getConditionalLikelihood();
-    double* f = &pi[activePi][0];
-    double like = 0.0;
+    real* LR = tree->getRoot()->getConditionalLikelihood();
+    real* f = &pi[activePi][0];
+    real like = 0.0;
     for (int i=0; i<numStates; i++)
         {
         like += (*f) * (*LR);
@@ -272,7 +280,7 @@ double Model::lnLikelihood(void) {
 
 #endif
 
-double Model::lnPriorProbability(void) {
+real Model::lnPriorProbability(void) {
 
     return 0.0;
 }

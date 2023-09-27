@@ -6,9 +6,9 @@
 #include "Threads.hpp"
 #include "Tree.hpp"
 
-double factorial(int x);
-int logBase2Plus1(double x);
-int setQvalue(double tol);
+real factorial(int x);
+int logBase2Plus1(real x);
+int setQvalue(real tol);
 
 
 
@@ -25,7 +25,7 @@ class TransitionProbabilitiesTask : public ThreadTask {
             P          = NULL;
         }
         
-        void init(int i, int n, double v, DoubleMatrix* q, DoubleMatrix* p) {
+        void init(int i, int n, real v, RealMatrix* q, RealMatrix* p) {
         
             taskId     = i;
             numStates  = n;
@@ -42,7 +42,7 @@ class TransitionProbabilitiesTask : public ThreadTask {
 
            The method has the advantage of error control. The error is controlled by
            setting qValue appropriately (using the function SetQValue). */
-        void computeMatrixExponential(MathCache& cache, int qValue, double v, DoubleMatrix* probs) {
+        void computeMatrixExponential(MathCache& cache, int qValue, real v, RealMatrix* probs) {
         
             assert(probs->getNumRows() == probs->getNumCols());
             auto size = probs->getNumRows();
@@ -67,7 +67,7 @@ class TransitionProbabilitiesTask : public ThreadTask {
 
             a->divideByPowerOfTwo(j);
             
-            double c = 1.0;
+            real c = 1.0;
             for (int k = 1; k <= qValue; k++)
                 {
                 c = c * (qValue - k + 1.0) / ((2.0 * qValue - k + 1.0) * k);
@@ -106,14 +106,14 @@ class TransitionProbabilitiesTask : public ThreadTask {
     private:
         int             taskId;
         int             numStates;
-        double          brlen;
-        DoubleMatrix*   Q;
-        DoubleMatrix*   P;
+        real          brlen;
+        RealMatrix*   Q;
+        RealMatrix*   P;
 };
 
 
 
-class TransitionProbabilities : public DoubleMatrix {
+class TransitionProbabilities : public RealMatrix {
 
     public:
                     TransitionProbabilities(void) = delete;

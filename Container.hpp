@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <assert.h>
+#include "jph.hpp"
 
 #define ForElements(v) for (auto v = this->begin(), end = this->end(); v < end; ++v)
 #define ForLeftRight(a) const auto* right = a.begin(); for (auto left = this->begin(), end = this->end(); left < end; ++left, ++right)
@@ -308,7 +309,7 @@ class MatrixTemplate : public BufferTemplate<T> {
                 *c = 1;
         }
 
-        double maxDiagonal(void) {
+        real maxDiagonal(void) {
         
             assert(numRows == numCols);
             auto cols1 = getNumCols() + 1;
@@ -406,7 +407,7 @@ class MatrixTemplate : public BufferTemplate<T> {
             if (power > 0)
                 {
                 auto factor = 1L << power;
-                multiply(1.0 / (double)factor);
+                multiply(1.0 / (real)factor);
                 }
         }
 
@@ -423,9 +424,9 @@ class MatrixTemplate : public BufferTemplate<T> {
 
 
 typedef ArrayTemplate<int>    IntArray;
-typedef ArrayTemplate<double> DoubleArray;
+typedef ArrayTemplate<real> DoubleArray;
 
 typedef MatrixTemplate<int>    IntMatrix;
-typedef MatrixTemplate<double> DoubleMatrix;
+typedef MatrixTemplate<real> RealMatrix;
 
 #endif

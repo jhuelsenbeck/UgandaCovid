@@ -79,7 +79,7 @@ void TransitionProbabilitiesMngr::switchActive(void) {
         activeTiProb = 0;
 }
 
-void TransitionProbabilitiesMngr::updateTransitionProbabilities(double rate) {
+void TransitionProbabilitiesMngr::updateTransitionProbabilities(real rate) {
 
     RateMatrix* Q = modelPtr->getRateMatrix();
 
@@ -90,10 +90,10 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(double rate) {
     int id = 0;
     for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
         {
-        double v = (double)it->first;
+        real v = (real)it->first;
         if (it->first == 0)
             v = MIN_BRLEN;
-        task->init(id, (int)dim, v, (DoubleMatrix*)Q, it->second.tipr[activeTiProb]);
+        task->init(id, (int)dim, v, (RealMatrix*)Q, it->second.tipr[activeTiProb]);
         threadPool->PushTask(task);
         ++task;
         ++id;

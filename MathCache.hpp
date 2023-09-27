@@ -9,23 +9,23 @@ class MathCache {
     public:
                       MathCache(void);
                      ~MathCache(void);
-        void          backSubstitutionRow(DoubleMatrix& U, double* b);
-        void          computeLandU(DoubleMatrix& A, DoubleMatrix& L, DoubleMatrix& U);
-        void          forwardSubstitutionRow(DoubleMatrix& L, double* b);
-        void          gaussianElimination(DoubleMatrix& A, DoubleMatrix& B, DoubleMatrix& X);
-        void          multiply(DoubleMatrix& A, DoubleMatrix& B);
-        void          power(DoubleMatrix& m, int power);
-        void          transpose(DoubleMatrix& m, DoubleMatrix& mT);
+        void          backSubstitutionRow(RealMatrix& U, real* b);
+        void          computeLandU(RealMatrix& A, RealMatrix& L, RealMatrix& U);
+        void          forwardSubstitutionRow(RealMatrix& L, real* b);
+        void          gaussianElimination(RealMatrix& A, RealMatrix& B, RealMatrix& X);
+        void          multiply(RealMatrix& A, RealMatrix& B);
+        void          power(RealMatrix& m, int power);
+        void          transpose(RealMatrix& m, RealMatrix& mT);
 
-        DoubleMatrix* pushMatrix(size_t rows, size_t columns);
-        DoubleMatrix* pushMatrix(size_t size);
+        RealMatrix* pushMatrix(size_t rows, size_t columns);
+        RealMatrix* pushMatrix(size_t size);
         void          popMatrix(int n);
         DoubleArray*  pushArray(size_t size);
         void          popArray();
 
         static const size_t bufferSize = 16;
 
-        DoubleMatrix matrixBuffer[bufferSize];
+        RealMatrix matrixBuffer[bufferSize];
         DoubleArray  arrayBuffer[bufferSize];
         size_t       matrixCount,
                      arrayCount;

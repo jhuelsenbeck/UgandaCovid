@@ -18,6 +18,4 @@ Node::Node(void) {
 
 Node::~Node(void) {
 
-    if (cl != nullptr)
-        delete [] cl;
 }
