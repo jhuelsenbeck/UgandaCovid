@@ -45,12 +45,11 @@ MetaData::MetaData(std::string fileName) {
     int areaIdx = 0;
     for (area_map::iterator it = areas.begin(); it != areas.end(); it++)
         {
-        std::cout << areaIdx << ": " << it->first << std::endl;
         it->second = areaIdx;
         areaIdx++;
         }
         
-    print();
+    //print();
 }
 
 void MetaData::assignTreeTipAreas(Tree* t) {
@@ -111,7 +110,7 @@ void MetaData::assignTreeTipAreas(Tree* t) {
             
         
         }
-    std::cout << "Successfully assigned area informaton to the tree tips" << std::endl;
+    std::cout << "   * Successfully assigned area informaton to the tree tips" << std::endl;
 }
 
 std::string MetaData::extractAreaInfo(std::vector<std::string>& vec) {

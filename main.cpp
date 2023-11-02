@@ -9,9 +9,13 @@
 #include "Tree.hpp"
 #include "UserSettings.hpp"
 
+void printHeader(void);
+
 
 
 int main(int argc, char* argv[]) {
+
+    printHeader();
 
     // user interface, such as it is
     UserSettings& settings = UserSettings::getUserSettings();
@@ -42,4 +46,11 @@ int main(int argc, char* argv[]) {
     mcmc.run();
 
     return 0;
+}
+
+void printHeader(void) {
+
+    std::cout << "   * Covid is Fun!" << std::endl;
+    std::cout << "     John P. Huelsenbeck and Noah Baker" << std::endl;
+    std::cout << "     University of California, Berkeley" << std::endl;
 }

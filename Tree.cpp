@@ -99,8 +99,8 @@ Tree::Tree(std::string fileName) {
         
     initializeDownPassSequence();
     
-    std::cout << "Successfully read tree file \"" << fileName << "\"" << std::endl;
-    std::cout << "Tree has " << numTips << " tips and " << numNodes << " nodes" << std::endl;
+    std::cout << "   * Successfully read tree file \"" << fileName << "\"" << std::endl;
+    std::cout << "     Tree has " << numTips << " tips and " << numNodes << " nodes" << std::endl;
 #   if 0
     std::vector<int> descDist;
     for (auto p=downPassSequence.begin(); p != downPassSequence.end(); p++)

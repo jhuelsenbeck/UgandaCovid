@@ -68,10 +68,11 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
 
 void UserSettings::print(void) {
 
-    std::cout << "Tree file        = \"" << treeFile << "\"" << std::endl;
-    std::cout << "Metadata file    = \"" << tsvFile << "\"" << std::endl;
-    std::cout << "Output file      = \"" << outFile << "\"" << std::endl;
-    std::cout << "Chain length     = " << chainLength << std::endl;
-    std::cout << "Print frequency  = " << printFrequency << std::endl;
-    std::cout << "Sample frequency = " << sampleFrequency << std::endl;
+    std::cout << "   * User settings:" << std::endl;
+    std::cout << "     Tree file        = \"" << treeFile << "\"" << std::endl;
+    std::cout << "     Metadata file    = \"" << tsvFile << "\"" << std::endl;
+    std::cout << "     Output file      = \"" << outFile << "\"" << std::endl;
+    std::cout << "     Chain length     = " << chainLength << std::endl;
+    std::cout << "     Print frequency  = " << printFrequency << std::endl;
+    std::cout << "     Sample frequency = " << sampleFrequency << std::endl;
 }

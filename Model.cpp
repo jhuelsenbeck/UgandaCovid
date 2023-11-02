@@ -32,6 +32,7 @@ Model::Model(Tree* tp, RateMatrix* m, ThreadPool* thp) {
     if (numStates % 2 != 0)
         Msg::error("Trying to use the SSE instruction set for an odd number of states");
 #   endif
+    std::cout << "   * Model has " << numStates << " areas (" << numStates << " X " << numStates << ")" << std::endl;
 
     // set up the model parameters
     substitutionRate[0] = 0.01; // pick a good starting value?
