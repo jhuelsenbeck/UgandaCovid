@@ -1,6 +1,5 @@
 #include <chrono>
 #include <iomanip>
-#include <arm_neon.h>
 #include "Model.hpp"
 #include "Msg.hpp"
 #include "Node.hpp"
@@ -10,7 +9,7 @@
 #include "TransitionProbabilities.hpp"
 #include "TransitionProbabilitiesMngr.hpp"
 #include "Tree.hpp"
-#undef INTEL_SSE // define/undef for using or not using SSE
+#define INTEL_SSE // define/undef for using or not using SSE
 #ifdef INTEL_SSE
 #   include <xmmintrin.h>
 #   include <emmintrin.h>
@@ -150,7 +149,7 @@ void Model::initializeConditionalLikelihoods(void) {
         }
     if (m != condLikes + (numNodes*numStates))
         Msg::warning("Something unexpected when setting up conditional likelihoods");
-    std::cout << "Successfully allocated a total of " << numAllocatedDoubles << " doubles for the conditional likelihoods" << std::endl;
+    std::cout << "   * Successfully allocated a total of " << numAllocatedDoubles << " doubles for the conditional likelihoods" << std::endl;
 
     double lnL = lnLikelihood();
     std::cout << "lnL = " << lnL << std::endl;
