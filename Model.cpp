@@ -10,7 +10,7 @@
 #include "TransitionProbabilities.hpp"
 #include "TransitionProbabilitiesMngr.hpp"
 #include "Tree.hpp"
-#define INTEL_SSE // define/undef for using or not using SSE
+#undef INTEL_SSE // define/undef for using or not using SSE
 #ifdef INTEL_SSE
 #   include <xmmintrin.h>
 #   include <emmintrin.h>
