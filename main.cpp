@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
     Model model(tree, Q, &threadPool);
     
     // run the MCMC algorithm
-    Mcmc mcmc(settings.getChainLength(), settings.getPrintFrequency(), settings.getSampleFrequency(), &model);
+    Mcmc mcmc(settings.getChainLength(), settings.getPrintFrequency(), settings.getSampleFrequency(), settings.getOutputFile(), &model);
     mcmc.run();
 
     return 0;

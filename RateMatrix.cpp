@@ -30,7 +30,7 @@ RateMatrix& RateMatrix::operator=(const RateMatrix& rhs) {
     return *this;
 }
 
-void RateMatrix::calculateStationaryFrequencies(real* f) {
+void RateMatrix::calculateStationaryFrequencies(double* f) {
 
     int n = (int)numRows;
     
@@ -48,7 +48,7 @@ void RateMatrix::calculateStationaryFrequencies(real* f) {
 	f[n-1] = 1;
 	for (int i=n-2; i>=0; i--)
 		{
-		real dotProduct = 0.0;
+		double dotProduct = 0.0;
 		for (int j=i+1; j<n; j++)
 			dotProduct += (*U)(i,j) * f[j];
 		f[i] = (0 - dotProduct) / (*U)(i,i);
@@ -57,18 +57,18 @@ void RateMatrix::calculateStationaryFrequencies(real* f) {
     cache.popMatrix(3);
 		
 	// normalize the solution vector
-	real sum = 0.0;
+	double sum = 0.0;
 	for (int i=0; i<n; i++)
 		sum += f[i];
 	for (int i=0; i<n; i++)
 		f[i] /= sum;
 }
 
-void RateMatrix::set(real* pi, real* r) {
+void RateMatrix::set(double* pi, double* r) {
 
     // set off diagonal elements
-    real* rPtr = r;
-    real averageRate = 0.0;
+    double* rPtr = r;
+    double averageRate = 0.0;
     for (int i=0; i<numRows; i++)
         {
         for (int j=i+1; j<numCols; j++)
@@ -84,7 +84,7 @@ void RateMatrix::set(real* pi, real* r) {
     // set diagonal elements
     for (int i=0; i<numRows; i++)
         {
-        real sum = 0.0;
+        double sum = 0.0;
         for (int j=0; j<numCols; j++)
             {
             if (i != j)
@@ -94,7 +94,7 @@ void RateMatrix::set(real* pi, real* r) {
         }
 
     // rescale such that the average rate is one
-    real factor = 1.0 / averageRate;
+    double factor = 1.0 / averageRate;
     for (auto p=begin(), endP=end(); p != endP; p++)
         (*p) *= factor;
 }

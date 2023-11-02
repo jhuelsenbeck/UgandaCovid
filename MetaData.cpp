@@ -63,7 +63,7 @@ void MetaData::assignTreeTipAreas(Tree* t) {
         Node* p = dpSeq[i];
         
         // allocate conditional likelihoods
-        real* x = new real[numAreas];
+        double* x = new double[numAreas];
         for (int s=0; s<numAreas; s++)
             x[s] = 0.0;
         p->setConditionalLikelihood(x);

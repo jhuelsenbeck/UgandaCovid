@@ -13,7 +13,7 @@ Node::Node(void) {
     isTip       = false;
     cl          = nullptr;
     clEnd       = nullptr;
-    tiPair      = nullptr;
+    tiProb      = nullptr;
 }
 
 Node::~Node(void) {

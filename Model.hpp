@@ -3,7 +3,7 @@
 
 #include <cmath>
 #include <iostream>
-#include "jph.hpp"
+#include <string>
 #include "Threads.hpp"
 class RateMatrix;
 class ThreadPool;
@@ -17,25 +17,38 @@ class Model {
                                         Model(void) = delete;
                                         Model(Tree* tp, RateMatrix* m, ThreadPool* thp);
                                        ~Model(void);
+        void                            accept(void);
+        std::vector<double>&            getPi(void) { return pi[1]; }
+        std::vector<double>&            getR(void) { return r[1]; }
         RateMatrix*                     getRateMatrix(void) { return q[activeRateMatrix]; }
-        real                          lnLikelihood(void);
-        real                          lnPriorProbability(void);
+        double                          getSubstitutionRate(void) { return substitutionRate[1]; }
+        std::string                     getUpdateType(void) { return updateType; }
+        double                          lnLikelihood(void);
+        double                          lnPriorProbability(void);
+        void                            reject(void);
+        double                          update(void);
     
     private:
+        void                            checkConditionalLikelihoods(void);
         void                            initializeConditionalLikelihoods(void);
+        void                            switchActiveRateMatrix(void);
+        double                          updateSubstitutionRate(void);
+        double                          updatePi(void);
+        double                          updateR(void);
+        void                            updateRateMatrix(void);
+        double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0);
+        double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, int k);
         Tree*                           tree;
+        int                             activeRateMatrix;
         RateMatrix*                     q[2];
         TransitionProbabilitiesMngr*    tiMngr;
         ThreadPool*                     threadPool;
-        real*                         condLikes;
-        int                             activeRateMatrix;
-        int                             activeSubstitutionRate;
-        int                             activePi;
-        int                             activeR;
-        real                            substitutionRate[2];
-        std::vector<real>             pi[2];
-        std::vector<real>             r[2];
+        double*                         condLikes;
+        double                          substitutionRate[2];
+        std::vector<double>             pi[2];
+        std::vector<double>             r[2];
         size_t                          numStates;
+        std::string                     updateType;
 };
 
 class ConditionalLikelihoodTask : public ThreadTask {
@@ -48,7 +61,7 @@ class ConditionalLikelihoodTask : public ThreadTask {
             tiBegin       = NULL;
         }
         
-        void init(int n, real* l, real* b, real* p) {
+        void init(int n, double* l, double* b, double* p) {
         
             numStates     = n;
             clBegin       = l;
@@ -57,16 +70,16 @@ class ConditionalLikelihoodTask : public ThreadTask {
 
         void condLike(MathCache& cache) {
         
-            real* P = tiBegin;
-            real* clEnd = clBegin + numStates;
+            double* P = tiBegin;
+            double* clEnd = clBegin + numStates;
             auto lnSum  = cache.pushArray(numStates);
-            real* sStart = lnSum->begin();
-            real* sEnd = lnSum->end();
+            double* sStart = lnSum->begin();
+            double* sEnd = lnSum->end();
             
-            for (real* s=sStart; s != sEnd; s++)
+            for (double* s=sStart; s != sEnd; s++)
                 {
-                real sum = 0.0;
-                for (real* L=clBegin; L != clEnd; L++)
+                double sum = 0.0;
+                for (double* L=clBegin; L != clEnd; L++)
                     {
                     sum += (*P) * (*L);
                     P++;
@@ -83,8 +96,8 @@ class ConditionalLikelihoodTask : public ThreadTask {
 
     private:
         int             numStates;
-        real*         clBegin;
-        real*         tiBegin;
+        double*         clBegin;
+        double*         tiBegin;
 };
 
 

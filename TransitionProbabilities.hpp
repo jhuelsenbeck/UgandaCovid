@@ -6,9 +6,9 @@
 #include "Threads.hpp"
 #include "Tree.hpp"
 
-real factorial(int x);
-int logBase2Plus1(real x);
-int setQvalue(real tol);
+double factorial(int x);
+int logBase2Plus1(double x);
+int setQvalue(double tol);
 
 
 
@@ -25,7 +25,7 @@ class TransitionProbabilitiesTask : public ThreadTask {
             P          = NULL;
         }
         
-        void init(int i, int n, real v, RealMatrix* q, RealMatrix* p) {
+        void init(int i, int n, double v, RealMatrix* q, RealMatrix* p) {
         
             taskId     = i;
             numStates  = n;
@@ -42,7 +42,7 @@ class TransitionProbabilitiesTask : public ThreadTask {
 
            The method has the advantage of error control. The error is controlled by
            setting qValue appropriately (using the function SetQValue). */
-        void computeMatrixExponential(MathCache& cache, int qValue, real v, RealMatrix* probs) {
+        void computeMatrixExponential(MathCache& cache, int qValue, double v, RealMatrix* probs) {
         
             assert(probs->getNumRows() == probs->getNumCols());
             auto size = probs->getNumRows();
@@ -67,7 +67,7 @@ class TransitionProbabilitiesTask : public ThreadTask {
 
             a->divideByPowerOfTwo(j);
             
-            real c = 1.0;
+            double c = 1.0;
             for (int k = 1; k <= qValue; k++)
                 {
                 c = c * (qValue - k + 1.0) / ((2.0 * qValue - k + 1.0) * k);
@@ -106,9 +106,9 @@ class TransitionProbabilitiesTask : public ThreadTask {
     private:
         int             taskId;
         int             numStates;
-        real          brlen;
-        RealMatrix*   Q;
-        RealMatrix*   P;
+        double          brlen;
+        RealMatrix*     Q;
+        RealMatrix*     P;
 };
 
 
@@ -120,6 +120,7 @@ class TransitionProbabilities : public RealMatrix {
                     TransitionProbabilities(const TransitionProbabilities& m);
                     TransitionProbabilities(size_t d);
         virtual    ~TransitionProbabilities(void);
+        size_t      dim(void) { return numRows; }
         int         getBrlen(void) { return brlen; }
         void        setBrlen(int x) { brlen = x; }
     

@@ -47,7 +47,7 @@ void MathCache::popArray() {
     --arrayCount;
 }
 
-void MathCache::backSubstitutionRow(RealMatrix& U, real* b) {
+void MathCache::backSubstitutionRow(RealMatrix& U, double* b) {
 
     int n = (int)U.getNumRows();
     int np1 = n + 1;
@@ -69,7 +69,7 @@ void MathCache::backSubstitutionRow(RealMatrix& U, real* b) {
 
         int j = i + 1;
 
-        real dotProduct = 0.0;
+        double dotProduct = 0.0;
         for (auto uj = urow + j, end = urow + n, bj = b + j; uj < end; uj++, bj++)
             dotProduct += *uj * *bj;
 
@@ -78,7 +78,7 @@ void MathCache::backSubstitutionRow(RealMatrix& U, real* b) {
         }
 }
 
-void MathCache::forwardSubstitutionRow(RealMatrix& L, real* const b) {
+void MathCache::forwardSubstitutionRow(RealMatrix& L, double* const b) {
 
     auto lrows  = L.getNumRows();
     auto lcols  = L.getNumCols();
@@ -93,7 +93,7 @@ void MathCache::forwardSubstitutionRow(RealMatrix& L, real* const b) {
         lrow  += lcols;
         ldiag += lcols1;
 
-        real dotProduct = 0.0;
+        double dotProduct = 0.0;
         for (auto lp = lrow, lend = lrow + i, bj = b; lp < lend; ++lp, ++bj)
             dotProduct += *lp * *bj;
 

@@ -17,7 +17,7 @@ TransitionProbabilities::~TransitionProbabilities(void) {
 
 }
 
-int logBase2Plus1(real x) {
+int logBase2Plus1(double x) {
 
 	int j = 0;
 	while(x > 1.0 - 1.0e-07)
@@ -28,9 +28,9 @@ int logBase2Plus1(real x) {
 	return (j);
 }
 
-int setQvalue(real tol) {
+int setQvalue(double tol) {
 	
-	real x = pow(2.0, 3.0 - (0 + 0)) * factorial(0) * factorial(0) / (factorial(0+0) * factorial(0+0+1));
+	double x = pow(2.0, 3.0 - (0 + 0)) * factorial(0) * factorial(0) / (factorial(0+0) * factorial(0+0+1));
 	int qV = 0;
 	while (x > tol)
 		{
@@ -40,9 +40,9 @@ int setQvalue(real tol) {
 	return (qV);
 }
 
-real factorial(int x) {
+double factorial(int x) {
 	
-	real fac = 1.0;
+	double fac = 1.0;
 	for (int i=0; i<x; i++)
 		fac *= (i+1);
 	return (fac);

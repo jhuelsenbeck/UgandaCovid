@@ -89,7 +89,7 @@ Tree::Tree(std::string fileName) {
             else
                 {
                 // add a branch length
-                real x = atof(token.c_str());
+                double x = atof(token.c_str());
                 int xI = round(x);
                 p->setBrlen(xI);
                 readingBranchLength = false;
@@ -181,9 +181,9 @@ void Tree::clone(const Tree& t) {
 
         if (p->getConditionalLikelihood() == nullptr)
             {
-            real* x = new real[this->numAreas];
+            double* x = new double[this->numAreas];
             p->setConditionalLikelihood(x);
-            memcpy(x, q->getConditionalLikelihood(), numAreas*sizeof(real));
+            memcpy(x, q->getConditionalLikelihood(), numAreas*sizeof(double));
             }
         }
         

@@ -9,9 +9,9 @@ class MathCache {
     public:
                       MathCache(void);
                      ~MathCache(void);
-        void          backSubstitutionRow(RealMatrix& U, real* b);
+        void          backSubstitutionRow(RealMatrix& U, double* b);
         void          computeLandU(RealMatrix& A, RealMatrix& L, RealMatrix& U);
-        void          forwardSubstitutionRow(RealMatrix& L, real* b);
+        void          forwardSubstitutionRow(RealMatrix& L, double* b);
         void          gaussianElimination(RealMatrix& A, RealMatrix& B, RealMatrix& X);
         void          multiply(RealMatrix& A, RealMatrix& B);
         void          power(RealMatrix& m, int power);

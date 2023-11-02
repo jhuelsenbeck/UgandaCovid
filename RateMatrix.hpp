@@ -18,10 +18,10 @@ class RateMatrix : public RealMatrix {
                                     RateMatrix(std::vector<std::string> a);
         virtual                    ~RateMatrix(void);
         RateMatrix&                 operator=(const RateMatrix& rhs);
-        void                        set(real* pi, real* r);
+        void                        set(double* pi, double* r);
     
     private:
-        void                        calculateStationaryFrequencies(real* f);
+        void                        calculateStationaryFrequencies(double* f);
         MathCache                   cache;
         std::vector<std::string>    areas;
 
