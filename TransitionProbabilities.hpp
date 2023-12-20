@@ -126,6 +126,24 @@ class TransitionProbabilities : public RealMatrix {
     
     private:
         int         brlen;
+
+    friend std::ostream& operator<<(std::ostream& os, const TransitionProbabilities& m);
 };
+
+inline std::ostream& operator<<(std::ostream& os, const TransitionProbabilities& m) {
+
+    os << std::fixed << std::setprecision(3) << std::scientific;
+    for (int i=0; i<m.numRows; i++)
+        {
+        for (int j=0; j<m.numCols; j++)
+            {
+            if (m(i,j) > 0)
+                os << " ";
+            os << m(i,j) << " ";
+            }
+        os << std::endl;
+        }
+    return os;
+}
 
 #endif

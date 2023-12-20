@@ -11,9 +11,10 @@ UserSettings::UserSettings(void) {
     treeFile         = "";
     tsvFile          = "";
     outFile          = "";
-    chainLength      = 1000;
-    printFrequency   = 1;
+    chainLength      = 10;
+    printFrequency   = 2;
     sampleFrequency  = 1;
+    numThreads       = 0;
 }
 
 bool UserSettings::check(void) {
@@ -57,6 +58,8 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
                 sampleFrequency = atoi(argument.c_str());
             else if (cmd == "-o")
                 outFile = argument;
+            else if (cmd == "-x")
+                numThreads = atoi(argument.c_str());
             else
                 Msg::error("Unknown command " + argument);
             cmd = "";
@@ -68,7 +71,7 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
 
 void UserSettings::print(void) {
 
-    std::cout << "   * User settings:" << std::endl;
+    std::cout << "   * User settings" << std::endl;
     std::cout << "     Tree file        = \"" << treeFile << "\"" << std::endl;
     std::cout << "     Metadata file    = \"" << tsvFile << "\"" << std::endl;
     std::cout << "     Output file      = \"" << outFile << "\"" << std::endl;

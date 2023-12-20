@@ -19,6 +19,7 @@ class MetaData {
                                     MetaData(std::string fileName);
         void                        assignTreeTipAreas(Tree* t);
         std::vector<std::string>    getAreas(void);
+        int                         getNumAreas(void) { return (int)areas.size(); }
         void                        print(void);
     
     private:

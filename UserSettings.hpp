@@ -16,6 +16,7 @@ class UserSettings {
                                     return singleInstance;
                                     }
         int                     getChainLength(void) { check(); return chainLength; }
+        int                     getNumTreads(void) { check(); return numThreads; }
         std::string             getOutputFile(void) { check(); return outFile; }
         int                     getPrintFrequency(void) { check(); return printFrequency; }
         int                     getSampleFrequency(void) { check(); return sampleFrequency; }
@@ -33,6 +34,7 @@ class UserSettings {
         int                     chainLength;
         int                     printFrequency;
         int                     sampleFrequency;
+        int                     numThreads;
 };
 
 #endif

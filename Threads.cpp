@@ -16,8 +16,18 @@ ThreadPool::ThreadPool(void):
     ThreadCount(std::thread::hardware_concurrency()),
     TaskCount(0),
     Running(true),
-    Threads(new std::thread[ThreadCount])
-{
+    Threads(new std::thread[ThreadCount]) {
+    
+    for (int i = 0; i < ThreadCount; i++)
+        Threads[i] = std::thread(&ThreadPool::Worker, this);
+}
+
+ThreadPool::ThreadPool(int n):
+    ThreadCount(n),
+    TaskCount(0),
+    Running(true),
+    Threads(new std::thread[ThreadCount]) {
+    
     for (int i = 0; i < ThreadCount; i++)
         Threads[i] = std::thread(&ThreadPool::Worker, this);
 }
@@ -39,9 +49,9 @@ ThreadPool::~ThreadPool(void) {
 void ThreadPool::PushTask(ThreadTask* task) {
 
     {
-      std::lock_guard<std::mutex> lock(TaskMutex);
-      ++TaskCount;
-      Tasks.push(task);
+    std::lock_guard<std::mutex> lock(TaskMutex);
+    ++TaskCount;
+    Tasks.push(task);
     }
     std::unique_lock mlock(CheckMutex);
     CheckCondition.notify_one();
@@ -50,8 +60,8 @@ void ThreadPool::PushTask(ThreadTask* task) {
 ThreadTask* ThreadPool::PopTask(void) {
 
     {
-        std::unique_lock mlock(CheckMutex);
-        CheckCondition.wait(mlock, [this]{return TaskCount > 0;});
+    std::unique_lock mlock(CheckMutex);
+    CheckCondition.wait(mlock, [this]{return TaskCount > 0;});
     }
 
     std::lock_guard<std::mutex> tasklock(TaskMutex);
@@ -69,17 +79,6 @@ void ThreadPool::Wait(void) {
 
     for (;;) 
         {
-        // This WaitCondition is signaled when all tasks are completed
-//        std::unique_lock lock(WaitMutex);
-//        WaitCondition.wait(lock);
-
-        // According to the documentation, this needs to be double-checked because of "spurious" wakeups
-
-//        size_t count;
-//        {
-//            std::lock_guard<std::mutex> tasklock(TaskMutex);
-//            count = TaskCount;
-//        }
         if (TaskCount == 0)
             break;
         else
@@ -98,34 +97,24 @@ void ThreadPool::Worker(void) {
             task->Run(cache);
 
             --TaskCount;
-//            if (TaskCount == 0)
-
-  //          size_t count;
-//            {
-//                std::lock_guard<std::mutex> tasklock(TaskMutex);
-//                count = --TaskCount;
-//            }
-//            if (count == 0)
-//                WaitCondition.notify_one();
             }
-//        else
-            std::this_thread::yield();
-    }
+        std::this_thread::yield();
+        }
 }
 
 #else
 
 // Serial version
-
-ThreadPool::ThreadPool():
+ThreadPool::ThreadPool(void):
     ThreadCount(1),
     TaskCount(0),
     Running(false),
-    Threads(NULL)
-{
+    Threads(NULL) {
+
 }
 
 ThreadPool::~ThreadPool(void) {
+
 }
 
 void ThreadPool::PushTask(ThreadTask* task) {
@@ -134,6 +123,7 @@ void ThreadPool::PushTask(ThreadTask* task) {
 }
 
 ThreadTask* ThreadPool::PopTask(void) {
+
     return NULL;
 }
 

@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iomanip>
+#include "CondLikeJobMngr.hpp"
 #include "Model.hpp"
 #include "Msg.hpp"
 #include "Node.hpp"
@@ -9,29 +10,20 @@
 #include "TransitionProbabilities.hpp"
 #include "TransitionProbabilitiesMngr.hpp"
 #include "Tree.hpp"
-#define INTEL_SSE // define/undef for using or not using SSE
-#ifdef INTEL_SSE
-#   include <xmmintrin.h>
-#   include <emmintrin.h>
-#   include <pmmintrin.h>
-#endif
 
-#define SHOW_LNL_TIME
+#undef SHOW_LNL_TIME
 
 
 
-Model::Model(Tree* tp, RateMatrix* m, ThreadPool* thp) {
+Model::Model(Tree* tp, RateMatrix* m, ThreadPool* thp, CondLikeJobMngr* mngr) {
 
+    clManager = mngr;
     threadPool = thp;
     numStates = m->getNumRows();
     updateType = "";
     
     // check that we can use the SSE instruction set
-#   ifdef INTEL_SSE
-    if (numStates % 2 != 0)
-        Msg::error("Trying to use the SSE instruction set for an odd number of states");
-#   endif
-    std::cout << "   * Model has " << numStates << " areas (" << numStates << " X " << numStates << ")" << std::endl;
+    std::cout << "     Model has " << numStates << " areas (" << numStates << " X " << numStates << ")" << std::endl;
 
     // set up the model parameters
     substitutionRate[0] = 0.01; // pick a good starting value?
@@ -65,6 +57,8 @@ Model::Model(Tree* tp, RateMatrix* m, ThreadPool* thp) {
         
     // set up the conditional likelihoods (must be done after tiMngr is instantiated
     initializeConditionalLikelihoods();
+
+    //clMngr.calculateTime(10);
 }
 
 Model::~Model(void) {
@@ -149,111 +143,38 @@ void Model::initializeConditionalLikelihoods(void) {
         }
     if (m != condLikes + (numNodes*numStates))
         Msg::warning("Something unexpected when setting up conditional likelihoods");
-    std::cout << "   * Successfully allocated a total of " << numAllocatedDoubles << " doubles for the conditional likelihoods" << std::endl;
+    std::cout << "     Successfully allocated a total of " << numAllocatedDoubles << " doubles for the conditional likelihoods" << std::endl;
 
-    double lnL = lnLikelihood();
-    std::cout << "lnL = " << lnL << std::endl;
+    lnLikelihood();
     
-#   if 0
+#   if 1
     checkConditionalLikelihoods();
 #   endif
 }
 
-#ifdef INTEL_SSE
+#if 1
 
-// vector version of likelihood calculation
 double Model::lnLikelihood(void) {
 
 #   if defined(SHOW_LNL_TIME)
     auto begin = std::chrono::high_resolution_clock::now();
 #   endif
 
-    // allocate a temporary vector for the sums
-    double* clSum = (double*)malloc(numStates*sizeof(double));
-    double* clSumEnd = clSum + numStates;
+    // calculate conditional likelihoods (threaded)
+    clManager->calculateConditionalLikelihoods();
+    double lnFactor = clManager->getScaler();
     
-    // calculate the conditional likelihoods
-    std::vector<Node*>& dpSeq = tree->getInteriorDownPassSequence();
-    double lnFactor = 0.0;
-    double lnNodeScalar = 0.0;
-    for (auto p=dpSeq.begin(); p != dpSeq.end(); p++)
-        {
-        for (double* v=clSum; v != clSumEnd; v++)
-            (*v) = 1.0;
-        std::set<Node*>& pDesc = (*p)->getDescendants();
-        for (Node* d : pDesc)
-            {
-            double* P = d->getTransitionProbability()->begin();
-            double* clBegin = d->getConditionalLikelihood();
-            double* clEnd = d->getConditionalLikelihoodEnd();
-            double largestCl = 0.0;
-            for (double* s=clSum; s != clSumEnd; s++)
-                {
-                __m128d sum01;
-                double sum = 0.0;
-                for (double* L=clBegin; L != clEnd; L+=2)
-                    {
-                    __m128d cl_01 = _mm_load_pd(L);
-
-                    __m128d ti_01 = _mm_load_pd(P);
-
-                    __m128d p01 = _mm_mul_pd(cl_01,ti_01);
-
-                    sum01 = _mm_hadd_pd(sum01,p01);
-
-                    P += 2;
-                    }
-                _mm_store_pd(&sum,sum01);
-                *s *= sum;
-                if (*s > largestCl)
-                    largestCl = *s;
-                
-                
-//                double sum = 0.0;
-//                for (double* L=clBegin; L != clEnd; L++)
-//                    {
-//                    sum += (*P) * (*L);
-//                    P++;
-//                    }
-//                *s *= sum;
-//
-//                if (*s > largestCl)
-//                    largestCl = *s;
-                }
-               
-            double factor = 1.0 / largestCl;
-            lnNodeScalar += log(largestCl); // is this right?
-            for (double* s=clSum; s != clSumEnd; s++)
-                *s *= factor;
-            }
-        lnFactor += lnNodeScalar;
-
-        double* LP = (*p)->getConditionalLikelihood();
-        for (double* v=clSum; v != clSumEnd; v++)
-            {
-            *LP = *v;
-            LP++;
-            }
-
-#       if 0
-        for (int i=0; i<numStates; i++)
-            std::cout << "cl[" << i << "] = " << std::fixed << std::setprecision(50) << LP[i] << std::endl;
-        getchar();
-#       endif
-        }
-        
-    // calculate likelihood
-    double* LR = tree->getRoot()->getConditionalLikelihood();
+    // average likelihoods at root
+    Node* r = tree->getRoot();
+    double* cl = r->getConditionalLikelihood();
     double* f = &pi[1][0];
     double like = 0.0;
     for (int i=0; i<numStates; i++)
         {
-        like += (*f) * (*LR);
-        LR++;
+        like += (*f) * (*cl);
+        cl++;
         f++;
         }
-        
-    free(clSum);
 
 #   if defined(SHOW_LNL_TIME)
     auto end = std::chrono::high_resolution_clock::now();
@@ -262,7 +183,6 @@ double Model::lnLikelihood(void) {
 
     return log(like) + lnFactor;
 }
-
 
 #else
 
@@ -283,48 +203,42 @@ double Model::lnLikelihood(void) {
     double lnNodeScalar = 0.0;
     for (auto p=dpSeq.begin(); p != dpSeq.end(); p++)
         {
-        for (double* v=clSum; v != clSumEnd; v++)
-            (*v) = 1.0;
+        for (double* s=clSum; s != clSumEnd; s++)
+            (*s) = 0.0;
         std::set<Node*>& pDesc = (*p)->getDescendants();
         for (Node* d : pDesc)
             {
-            double* P = d->getTransitionProbability()->begin();
-            double* clBegin = d->getConditionalLikelihood();
-            double* clEnd = d->getConditionalLikelihoodEnd();
-            double largestCl = 0.0;
+            double* p_ij      = d->getTransitionProbability()->begin();
+            double* clD_begin = d->getConditionalLikelihood();
+            double* clD_end   = d->getConditionalLikelihoodEnd();
             for (double* s=clSum; s != clSumEnd; s++)
                 {
                 double sum = 0.0;
-                for (double* L=clBegin; L != clEnd; L++)
+                for (double* clD=clD_begin; clD != clD_end; clD++)
                     {
-                    sum += (*P) * (*L);
-                    P++;
+                    sum += (*p_ij) * (*clD);
+                    p_ij++;
                     }
-                *s *= sum;
-                
-                if (*s > largestCl)
-                    largestCl = *s;
+                *s += log(sum);
                 }
-               
-            double factor = 1.0 / largestCl;
-            lnNodeScalar += log(largestCl); // is this right?
-            for (double* s=clSum; s != clSumEnd; s++)
-                *s *= factor;
             }
-        lnFactor += lnNodeScalar;
 
-        double* LP = (*p)->getConditionalLikelihood();
-        for (double* v=clSum; v != clSumEnd; v++)
+        // rescale and convert back into probabilities
+        double largestLogProb = *clSum;
+        for (double* s=clSum; s != clSumEnd; s++)
             {
-            *LP = *v;
-            LP++;
+            if (*s > largestLogProb)
+                largestLogProb = *s;
             }
 
-#       if 0
-        for (int i=0; i<numStates; i++)
-            std::cout << "cl[" << i << "] = " << std::fixed << std::setprecision(50) << LP[i] << std::endl;
-        getchar();
-#       endif
+        lnFactor += largestLogProb;
+        double* clP = (*p)->getConditionalLikelihood();
+        for (double* s=clSum; s != clSumEnd; s++)
+            {
+            *s -= largestLogProb;
+            *clP = exp(*s);
+            clP++;
+            }
         }
         
     // calculate likelihood
@@ -447,14 +361,14 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
     
     std::vector<double> alphaForward(r[0].size());
     for (int i=0, n=(int)alphaForward.size(); i<n; i++)
-        alphaForward[i] = oldVec[i] * alpha0;
+        alphaForward[i] = oldVec[i] * alpha0 + 1.0;
         
     Probability::Dirichlet::rv(&rng, alphaForward, newVec);
     Probability::Helper::normalize(newVec, 10e-7);
     
     std::vector<double> alphaReverse(r[0].size());
     for (int i=0, n=(int)alphaReverse.size(); i<n; i++)
-        alphaReverse[i] = newVec[i] * alpha0;
+        alphaReverse[i] = newVec[i] * alpha0 + 1.0;
 
     // CHECK THIS!!!
     double lnForwardProb = Probability::Dirichlet::lnPdf(alphaReverse, oldVec) - Probability::Dirichlet::lnPdf(alphaForward, newVec);
@@ -491,7 +405,7 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
     
     std::vector<double> alphaForward(k + 1);
     for (int i=0, n=(int)alphaForward.size(); i<n; i++)
-        alphaForward[i] = oldValues[i] * alpha0;
+        alphaForward[i] = oldValues[i] * alpha0 + 1.0;
         
     std::vector<double> newValues(k+1);
     Probability::Dirichlet::rv(&rng, alphaForward, newValues);
@@ -499,7 +413,7 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
     
     std::vector<double> alphaReverse(k + 1);
     for (int i=0, n=(int)alphaReverse.size(); i<n; i++)
-        alphaReverse[i] = newValues[i] * alpha0;
+        alphaReverse[i] = newValues[i] * alpha0 + 1.0;
         
     // fill in the vector from the updated (newValues) vector
     double factor = newValues[k] / oldValues[k];

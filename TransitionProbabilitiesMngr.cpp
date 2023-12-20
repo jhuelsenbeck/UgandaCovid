@@ -34,6 +34,7 @@ TransitionProbabilitiesMngr::TransitionProbabilitiesMngr(Model* m, Tree* t, size
             tiMap.insert( std::make_pair(v,ti) );
             }
         }
+    std::cout << "     Tree has " << tiMap.size() << " unique branch lengths" << std::endl;
 }
 
 TransitionProbabilitiesMngr::~TransitionProbabilitiesMngr(void) {

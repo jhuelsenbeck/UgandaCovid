@@ -99,7 +99,7 @@ Tree::Tree(std::string fileName) {
         
     initializeDownPassSequence();
     
-    std::cout << "   * Successfully read tree file \"" << fileName << "\"" << std::endl;
+    std::cout << "     Successfully read tree file \"" << fileName << "\"" << std::endl;
     std::cout << "     Tree has " << numTips << " tips and " << numNodes << " nodes" << std::endl;
 #   if 0
     std::vector<int> descDist;
@@ -225,6 +225,11 @@ void Tree::print(void) {
     showNode(root, 0);
 }
 
+void Tree::print(Node* subtree) {
+
+    showNode(subtree, 0);
+}
+
 void Tree::readAhead(std::string& token, std::string& newickStr, int& i) {
 
     int j = i;
@@ -255,10 +260,16 @@ void Tree::showNode(Node* p, int indent) {
         
         for (int i=0; i<indent; i++)
             std::cout << " ";
-        std::cout << p->getIndex() << " ";
+        std::cout << p->getIndex();
+        if (p->getAncestor() != nullptr)
+            std::cout << " a_" << p->getAncestor()->getIndex() << " ( ";
+        for (Node* d : pDesc)
+            std::cout << d->getIndex() << " ";
+        std::cout << ") ";
+        std::cout << p->getBrlen() << " ";
         std::cout << std::endl;
         
         for (Node* d : pDesc)
-            showNode(d, indent + 1);
+            showNode(d, indent + 3);
         }
 }

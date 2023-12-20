@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include "Threads.hpp"
+class CondLikeJobMngr;
 class RateMatrix;
 class ThreadPool;
 class TransitionProbabilitiesMngr;
@@ -15,7 +16,7 @@ class Model {
 
     public:
                                         Model(void) = delete;
-                                        Model(Tree* tp, RateMatrix* m, ThreadPool* thp);
+                                        Model(Tree* tp, RateMatrix* m, ThreadPool* thp, CondLikeJobMngr* mngr);
                                        ~Model(void);
         void                            accept(void);
         std::vector<double>&            getPi(void) { return pi[1]; }
@@ -38,6 +39,7 @@ class Model {
         void                            updateRateMatrix(void);
         double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0);
         double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, int k);
+        CondLikeJobMngr*                clManager;
         Tree*                           tree;
         int                             activeRateMatrix;
         RateMatrix*                     q[2];
@@ -49,55 +51,6 @@ class Model {
         std::vector<double>             r[2];
         size_t                          numStates;
         std::string                     updateType;
-};
-
-class ConditionalLikelihoodTask : public ThreadTask {
-
-    public:
-        ConditionalLikelihoodTask(void) {
-        
-            numStates     = 0;
-            clBegin       = NULL;
-            tiBegin       = NULL;
-        }
-        
-        void init(int n, double* l, double* b, double* p) {
-        
-            numStates     = n;
-            clBegin       = l;
-            tiBegin       = p;
-        }
-
-        void condLike(MathCache& cache) {
-        
-            double* P = tiBegin;
-            double* clEnd = clBegin + numStates;
-            auto lnSum  = cache.pushArray(numStates);
-            double* sStart = lnSum->begin();
-            double* sEnd = lnSum->end();
-            
-            for (double* s=sStart; s != sEnd; s++)
-                {
-                double sum = 0.0;
-                for (double* L=clBegin; L != clEnd; L++)
-                    {
-                    sum += (*P) * (*L);
-                    P++;
-                    }
-                *s = log(sum);
-                }
-        }
-
-        virtual void Run(MathCache& cache) {
-            
-            //std::cout << "Running task " << taskId << "  << std::endl;
-            condLike(cache);
-            }
-
-    private:
-        int             numStates;
-        double*         clBegin;
-        double*         tiBegin;
 };
 
 

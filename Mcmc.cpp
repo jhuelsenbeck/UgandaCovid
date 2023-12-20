@@ -1,6 +1,9 @@
+#include <iomanip>
+#include <iostream>
 #include <string>
 #include "Mcmc.hpp"
 #include "Model.hpp"
+#include "McmcInfo.hpp"
 #include "Msg.hpp"
 #include "RandomVariable.hpp"
 
@@ -30,16 +33,22 @@ void Mcmc::openOutputFiles(void) {
 
 void Mcmc::run(void) {
 
+    std::cout << "   * Running chain" << std::endl;
+
     // open files for output
     openOutputFiles();
+    std::cout << "     Opening parameter log file" << std::endl;
 
     double curLnL = model->lnLikelihood();
     double curLnP = model->lnPriorProbability();
+    std::cout << "     Initializing likelihood and prior values" << std::endl;
     
+    McmcInfo info;
     for (int n=1; n<=chainLength; n++)
         {
         // propose a new state
         double lnProposalProbability = model->update();
+        std::string updateType = model->getUpdateType();
         
         // calculate the acceptance probability for that state
          double newLnL = model->lnLikelihood();
@@ -49,7 +58,7 @@ void Mcmc::run(void) {
          
         // print (part 1)
         if (n % printFrequency == 0)
-            std::cout << n << " -- " << curLnL << " -> " << newLnL << " -- ";
+            std::cout << "     " << n << " -- " << std::fixed << std::setprecision(2) << curLnL << " -> " << newLnL << " -- ";
         
         // accept or reject
          double lnR = lnLikelihoodRatio + lnPriorRatio + lnProposalProbability;
@@ -59,7 +68,7 @@ void Mcmc::run(void) {
               
         // print (part 2)
         if (n % printFrequency == 0)
-            std::cout << ((accept == true) ? "Accepted " : "Rejected ") << "update of " << model->getUpdateType() << std::endl;
+            std::cout << ((accept == true) ? "Accepted " : "Rejected ") << "update of " << updateType << std::endl;
         
         // adjust the state accordingly
          if (accept == true)
@@ -67,10 +76,12 @@ void Mcmc::run(void) {
             curLnL = newLnL;
             curLnP = newLnP;
             model->accept();
+            info.accept(updateType);
             }
         else
             {
             model->reject();
+            info.reject(updateType);
             }
         
         // print the current state of the chain to a file
@@ -80,6 +91,9 @@ void Mcmc::run(void) {
         
     // close output files
     closeOutputFiles();
+    
+    // print summary of proposals
+    info.print();
 }
 
 void Mcmc::print(int n, double lnL) {

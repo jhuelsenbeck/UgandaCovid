@@ -20,6 +20,7 @@ class Tree {
         int                 getNumNodes(void) { return numNodes; }
         Node*               getRoot(void) { return root; }
         void                print(void);
+        void                print(Node* subtree);
         void                setNumAreas(int x) { numAreas = x; }
     
     private:

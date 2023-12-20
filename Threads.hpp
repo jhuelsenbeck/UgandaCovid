@@ -21,6 +21,7 @@ class ThreadPool {
         int  ThreadCount;
 
              explicit ThreadPool(void);
+             explicit ThreadPool(int n);
              ~ThreadPool(void);
 
         void PushTask(ThreadTask* task);
