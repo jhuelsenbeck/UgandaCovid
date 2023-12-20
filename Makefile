@@ -4,7 +4,7 @@ CFLAGS   =  -O4 -std=gnu++20 -Ofast
 
 CC       =   g++
 
-OBJECTS  =   main.o Container.o MathCache.o Mcmc.o MetaData.o Model.o Msg.o Node.o Probability.o RandomVariable.o RateMatrix.o Threads.o TransitionProbabilities.o TransitionProbabilitiesMngr.o Tree.o UserSettings.o
+OBJECTS  =   main.o CondLikeJob.o CondLikeJobMngr.o Container.o MathCache.o Mcmc.o McmcInfo.o MetaData.o Model.o Msg.o Node.o Probability.o RandomVariable.o RateMatrix.o Threads.o TransitionProbabilities.o TransitionProbabilitiesMngr.o Tree.o UserSettings.o
 
 PROGS    = cov
 
@@ -19,11 +19,20 @@ main.o:	main.cpp
 Container.o:	Container.cpp
 		$(CC) $(CFLAGS) -c Container.cpp
 
+CondLikeJob.o:	CondLikeJob.cpp
+		$(CC) $(CFLAGS) -c CondLikeJob.cpp
+
+CondLikeJobMngr.o:	CondLikeJobMngr.cpp
+		$(CC) $(CFLAGS) -c CondLikeJobMngr.cpp
+
 MathCache.o:	MathCache.cpp
 		$(CC) $(CFLAGS) -c MathCache.cpp
 
 Mcmc.o:	Mcmc.cpp
 		$(CC) $(CFLAGS) -c Mcmc.cpp
+
+McmcInfo.o:	McmcInfo.cpp
+		$(CC) $(CFLAGS) -c McmcInfo.cpp
 
 MetaData.o:	MetaData.cpp
 		$(CC) $(CFLAGS) -c MetaData.cpp
