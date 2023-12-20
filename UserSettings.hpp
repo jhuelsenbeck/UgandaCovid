@@ -10,6 +10,7 @@ class UserSettings {
     public:
                                 UserSettings(void);
                                 UserSettings(const UserSettings& obj) = delete;
+        std::string             arguments(void);
         static UserSettings&    getUserSettings(void)
                                     {
                                     static UserSettings singleInstance;

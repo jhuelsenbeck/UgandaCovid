@@ -17,6 +17,26 @@ UserSettings::UserSettings(void) {
     numThreads       = 0;
 }
 
+std::string UserSettings::arguments(void) {
+
+    std::string str = "";
+    str += "-t ";
+    str += treeFile + " ";
+    str += "-m ";
+    str += tsvFile + " ";
+    str += "-o ";
+    str += outFile + " ";
+    str += "-n ";
+    str += std::to_string(chainLength) + " ";
+    str += "-p ";
+    str += std::to_string(printFrequency) + " ";
+    str += "-s ";
+    str += std::to_string(sampleFrequency) + " ";
+    str += "-x ";
+    str += std::to_string(numThreads) + " ";
+    return str;
+}
+
 bool UserSettings::check(void) {
 
     if (userSettingsRead == false)

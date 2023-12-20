@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
 
     printHeader();
     settings.print();
+    std::cout << "     Arguments: " << settings.arguments() << std::endl;
 
     // create the thread pool
     ThreadPool* threadPool = nullptr;
