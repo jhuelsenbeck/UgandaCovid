@@ -87,6 +87,9 @@ void Mcmc::run(void) {
         // print the current state of the chain to a file
         if (n % sampleFrequency == 0)
             print(n, curLnL);
+            
+        if (n % 1000 == 0)
+            info.print();
         }
         
     // close output files
