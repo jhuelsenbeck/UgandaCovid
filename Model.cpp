@@ -336,7 +336,7 @@ double Model::updateSubstitutionRate(void) {
     updateType = "substitution rate";
     RandomVariable& rng = RandomVariable::getInstance();
     double oldValue = substitutionRate[0];
-    double tuning = log(1.5);
+    double tuning = 0.02;
     double factor = exp((rng.uniformRv()-0.5)*tuning);
     double newValue = oldValue * factor;
     substitutionRate[1] = newValue;
