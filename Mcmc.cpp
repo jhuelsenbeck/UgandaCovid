@@ -119,7 +119,9 @@ void Mcmc::print(int n, double lnL) {
         }
 
     parmStrm << n << '\t';
+    parmStrm << std::fixed << std::setprecision(2);
     parmStrm << lnL << '\t';
+    parmStrm << std::scientific << std::setprecision(6);
     parmStrm << model->getSubstitutionRate() << '\t';
     for (int i=0; i<nStates; i++)
         parmStrm << pi[i] << '\t';
