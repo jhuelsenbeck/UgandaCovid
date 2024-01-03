@@ -26,7 +26,7 @@ class CondLikeJob : public ThreadTask {
         int                         numNodesInJob(void) { return (int)nodes->size(); }
         void                        print(void);
         void                        resolveDependency(void);
-        virtual void                Run(MathCache& cache);
+        virtual void                run(MathCache& cache);
         void                        setJobId(int x) { jobId = x; }
         void                        setNumDepencies(int x) { numDependencies = x; }
         void                        setNumResolvedDependencies(int x) { numResolvedDependencies = x; }

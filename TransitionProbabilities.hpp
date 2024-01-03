@@ -96,7 +96,7 @@ class TransitionProbabilitiesTask : public ThreadTask {
             cache.popMatrix(5);
         }
 
-        virtual void Run(MathCache& cache) {
+        virtual void run(MathCache& cache) {
             
             //std::cout << "Running task " << taskId << " for brlen=" << brlen << std::endl;
             int qValue = setQvalue(10e-7);

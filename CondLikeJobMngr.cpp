@@ -125,9 +125,9 @@ void CondLikeJobMngr::calculateConditionalLikelihoods(void) {
     for (std::vector<CondLikeJob*>::iterator it = jobs.begin(); it != jobs.end(); it++)
         {
         if ((*it)->getNumDependencies() == 0)
-            threadPool->PushTask(*it);
+            threadPool->pushTask(*it);
         }
-    threadPool->Wait();
+    threadPool->wait();
 }
 
 void CondLikeJobMngr::calculateTime(int n) {

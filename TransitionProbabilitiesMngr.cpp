@@ -101,12 +101,12 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(double rate) {
         if (it->first == 0)
             v = MIN_BRLEN;
         task->init(id, (int)dim, v, (RealMatrix*)Q, it->second);
-        threadPool->PushTask(task);
+        threadPool->pushTask(task);
         ++task;
         ++id;
         }
         
-    threadPool->Wait();
+    threadPool->wait();
     delete [] tasks;
     
 #   if 0

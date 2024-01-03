@@ -1,10 +1,10 @@
-#ifndef threads_hpp
-#define threads_hpp
+#ifndef Threads_hpp
+#define Threads_hpp
 
 #include <condition_variable>
-#include <thread>
-#include <mutex> 
+#include <mutex>
 #include <queue>
+#include <thread>
 #include "MathCache.hpp"
 
 
@@ -12,36 +12,33 @@
 class ThreadTask {
 
     public:
-        ThreadTask(void);
-        virtual ~ThreadTask(void);
-        virtual void Run(MathCache& cache) = 0;
+                                ThreadTask(void);
+        virtual                ~ThreadTask(void);
+        virtual void            run(MathCache& cache) = 0;
 };
 
 class ThreadPool {
 
     public:
-        int  ThreadCount;
-
-             explicit ThreadPool(void);
-             explicit ThreadPool(int n);
-             ~ThreadPool(void);
-
-        void PushTask(ThreadTask* task);
-        void Wait();
+        explicit                ThreadPool(void);
+        explicit                ThreadPool(int n);
+                               ~ThreadPool(void);
+        void                    pushTask(ThreadTask* task);
+        void                    wait(void);
+        int                     threadCount;
 
     private:
-        std::atomic<size_t>     TaskCount;
-        std::atomic<bool>       Running;
-        std::mutex              TaskMutex,
-                                WaitMutex,
-                                CheckMutex;
-        std::condition_variable WaitCondition,
-                                CheckCondition;
-        std::queue<ThreadTask*> Tasks;
-        std::thread*            Threads;
-
-        void                    Worker(void);
-        ThreadTask*             PopTask(void);
+        void                    worker(void);
+        ThreadTask*             popTask(void);
+        std::atomic<size_t>     taskCount;
+        std::atomic<bool>       running;
+        std::mutex              taskMutex,
+                                waitMutex,
+                                checkMutex;
+        std::condition_variable waitCondition,
+                                checkCondition;
+        std::queue<ThreadTask*> tasks;
+        std::thread*            threads;
 };
 
 

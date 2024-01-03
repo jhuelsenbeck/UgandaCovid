@@ -92,11 +92,11 @@ void CondLikeJob::resolveDependency(void) {
     mtx.lock();
     numResolvedDependencies++;
     if (numResolvedDependencies == numDependencies)
-        threadPool->PushTask(this);
+        threadPool->pushTask(this);
     mtx.unlock();
 }
 
-void CondLikeJob::Run(MathCache&) {
+void CondLikeJob::run(MathCache&) {
 
     // compute conditional likelihoods here
     conditionalLikelihood(); // actual work to be accomplished

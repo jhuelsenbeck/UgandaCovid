@@ -13,90 +13,89 @@ ThreadTask::~ThreadTask(void) {
 // Threaded version
 
 ThreadPool::ThreadPool(void):
-    ThreadCount(std::thread::hardware_concurrency()),
-    TaskCount(0),
-    Running(true),
-    Threads(new std::thread[ThreadCount]) {
+    threadCount(std::thread::hardware_concurrency()),
+    taskCount(0),
+    running(true),
+    threads(new std::thread[threadCount]) {
     
-    for (int i = 0; i < ThreadCount; i++)
-        Threads[i] = std::thread(&ThreadPool::Worker, this);
+    for (int i = 0; i < threadCount; i++)
+        threads[i] = std::thread(&ThreadPool::worker, this);
 }
 
 ThreadPool::ThreadPool(int n):
-    ThreadCount(n),
-    TaskCount(0),
-    Running(true),
-    Threads(new std::thread[ThreadCount]) {
+    threadCount(n),
+    taskCount(0),
+    running(true),
+    threads(new std::thread[threadCount]) {
     
-    for (int i = 0; i < ThreadCount; i++)
-        Threads[i] = std::thread(&ThreadPool::Worker, this);
+    for (int i = 0; i < threadCount; i++)
+        threads[i] = std::thread(&ThreadPool::worker, this);
 }
 
 ThreadPool::~ThreadPool(void) {
 
-    Wait();
-    if (Threads)
+    wait();
+    if (threads)
         {
-        Running = false;
-        TaskCount = 1;
-        CheckCondition.notify_all();
-        for (auto* t = Threads; t < Threads + ThreadCount; ++t)
+        running = false;
+        taskCount = 1;
+        checkCondition.notify_all();
+        for (auto* t = threads; t < threads + threadCount; ++t)
             t->join();
-        delete[] Threads;
+        delete[] threads;
         }
 }
 
-void ThreadPool::PushTask(ThreadTask* task) {
+void ThreadPool::pushTask(ThreadTask* task) {
 
     {
-    std::lock_guard<std::mutex> lock(TaskMutex);
-    ++TaskCount;
-    Tasks.push(task);
+    std::lock_guard<std::mutex> lock(taskMutex);
+    ++taskCount;
+    tasks.push(task);
     }
-    std::unique_lock mlock(CheckMutex);
-    CheckCondition.notify_one();
+    std::unique_lock mlock(checkMutex);
+    checkCondition.notify_one();
 }
     
-ThreadTask* ThreadPool::PopTask(void) {
+ThreadTask* ThreadPool::popTask(void) {
 
     {
-    std::unique_lock mlock(CheckMutex);
-    CheckCondition.wait(mlock, [this]{return TaskCount > 0;});
+    std::unique_lock mlock(checkMutex);
+    checkCondition.wait(mlock, [this]{return taskCount > 0;});
     }
 
-    std::lock_guard<std::mutex> tasklock(TaskMutex);
-    if (Tasks.empty())
+    std::lock_guard<std::mutex> tasklock(taskMutex);
+    if (tasks.empty())
         return NULL;
     else 
         {
-        auto task = Tasks.front();
-        Tasks.pop();
+        auto task = tasks.front();
+        tasks.pop();
         return task;
         }
 }
 
-void ThreadPool::Wait(void) {
+void ThreadPool::wait(void) {
 
     for (;;) 
         {
-        if (TaskCount == 0)
+        if (taskCount == 0)
             break;
         else
             std::this_thread::yield();
         }
 }
 
-void ThreadPool::Worker(void) {
+void ThreadPool::worker(void) {
 
     MathCache cache;
-    while (Running)
+    while (running)
         {
-        ThreadTask* task = PopTask();
+        ThreadTask* task = popTask();
         if (task)
             {
-            task->Run(cache);
-
-            --TaskCount;
+            task->run(cache);
+            --taskCount;
             }
         std::this_thread::yield();
         }
@@ -117,21 +116,21 @@ ThreadPool::~ThreadPool(void) {
 
 }
 
-void ThreadPool::PushTask(ThreadTask* task) {
+void ThreadPool::pushTask(ThreadTask* task) {
 
-    task->Run();
+    task->run();
 }
 
-ThreadTask* ThreadPool::PopTask(void) {
+ThreadTask* ThreadPool::popTask(void) {
 
     return NULL;
 }
 
-void ThreadPool::Wait(void) {
+void ThreadPool::wait(void) {
 
 }
 
-void ThreadPool::Worker(void) {
+void ThreadPool::worker(void) {
 
 }
 
