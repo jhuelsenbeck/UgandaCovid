@@ -51,20 +51,20 @@ void Mcmc::run(void) {
         std::string updateType = model->getUpdateType();
         
         // calculate the acceptance probability for that state
-         double newLnL = model->lnLikelihood();
-         double newLnP = model->lnPriorProbability();
-         double lnLikelihoodRatio = newLnL - curLnL;
-         double lnPriorRatio = newLnP - curLnP;
+        double newLnL = model->lnLikelihood();
+        double newLnP = model->lnPriorProbability();
+        double lnLikelihoodRatio = newLnL - curLnL;
+        double lnPriorRatio = newLnP - curLnP;
          
         // print (part 1)
         if (n % printFrequency == 0)
             std::cout << "     " << n << " -- " << std::fixed << std::setprecision(2) << curLnL << " -> " << newLnL << " -- ";
         
         // accept or reject
-         double lnR = lnLikelihoodRatio + lnPriorRatio + lnProposalProbability;
-         bool accept = false;
-         if (log(rng->uniformRv()) < lnR)
-              accept = true;
+        double lnR = lnLikelihoodRatio + lnPriorRatio + lnProposalProbability;
+        bool accept = false;
+        if (log(rng->uniformRv()) < lnR)
+          accept = true;
               
         // print (part 2)
         if (n % printFrequency == 0)
@@ -85,7 +85,7 @@ void Mcmc::run(void) {
             }
         
         // print the current state of the chain to a file
-        if (n % sampleFrequency == 0)
+        if (n == 1 || n % sampleFrequency == 0)
             print(n, curLnL);
             
         if (n % 1000 == 0)

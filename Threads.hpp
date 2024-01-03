@@ -1,10 +1,13 @@
 #ifndef threads_hpp
 #define threads_hpp
 
+#include <condition_variable>
 #include <thread>
 #include <mutex> 
 #include <queue>
 #include "MathCache.hpp"
+
+
 
 class ThreadTask {
 
@@ -13,7 +16,6 @@ class ThreadTask {
         virtual ~ThreadTask(void);
         virtual void Run(MathCache& cache) = 0;
 };
-
 
 class ThreadPool {
 

@@ -1,6 +1,7 @@
 #ifndef CondLikeJobMngr_hpp
 #define CondLikeJobMngr_hpp
 
+#include <mutex>
 #include <vector>
 class CondLikeJob;
 class ThreadPool;
