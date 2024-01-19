@@ -1,3 +1,4 @@
+#include <regex>
 #include "Node.hpp"
 
 
@@ -21,4 +22,10 @@ Node::Node(void) {
 
 Node::~Node(void) {
 
+}
+
+void Node::setName(std::string s) {
+
+    //std::string newS = std::regex_replace(s, std::regex("_"), " ");
+    name = s;
 }

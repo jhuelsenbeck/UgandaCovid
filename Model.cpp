@@ -346,13 +346,13 @@ double Model::updateSubstitutionRate(void) {
 double Model::updatePi(void) {
 
     updateType = "equilibrium frequencies";
-    return updateSimplex(pi[0], pi[1], 1000.0, 1);
+    return updateSimplex(pi[0], pi[1], 5000.0, 1);
 }
 
 double Model::updateR(void) {
 
     updateType = "exchangeability rates";
-    return updateSimplex(r[0], r[1], 1000.0, 1);
+    return updateSimplex(r[0], r[1], 5000.0, 1);
 }
 
 double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0) {

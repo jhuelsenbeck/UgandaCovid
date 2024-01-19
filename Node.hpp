@@ -40,7 +40,7 @@ class Node {
         void                        setIndex(int x) { index = x; }
         void                        setIsTip(bool tf) { isTip = tf; }
         void                        setJob(CondLikeJob* j) { job = j; }
-        void                        setName(std::string s) { name = s; }
+        void                        setName(std::string s);
         void                        setOffset(int x) { offset = x;}
         void                        setScratch(int x) { scratch = x; }
         void                        setTransitionProbability(TransitionProbabilities* p) { tiProb = p; }

@@ -33,6 +33,7 @@ int main(int argc, char* argv[]) {
     
     // read the meta-data file
     MetaData meta(settings.getTsvFile());
+    meta.print();
 
     // read the tree file
     std::cout << "   * Setting up phylogenetic model" << std::endl;
