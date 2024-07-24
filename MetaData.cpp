@@ -103,6 +103,7 @@ void MetaData::assignTreeTipAreas(Tree* t) {
                 }
             else
                 {
+                p->setIsAreaFixed(true);
                 x[id] = 1.0;
                 }
                 

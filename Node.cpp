@@ -11,11 +11,13 @@ Node::Node(void) {
     brlen        = 0.0;
     name         = "";
     areaId       = 0;
+    isAreaFixed  = false;
     isTip        = false;
     cl           = nullptr;
     clEnd        = nullptr;
     tiProb       = nullptr;
-    scratch      = 0;
+    scratchInt   = 0;
+    scratchBool  = false;
     job          = nullptr;
     dependentJob = nullptr;
 }

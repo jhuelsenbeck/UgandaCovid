@@ -11,7 +11,7 @@ class Mcmc {
 
     public:
                         Mcmc(void) = delete;
-                        Mcmc(int cl, int pf, int sf, std::string s, Model* m);
+                        Mcmc(int cl, int bi, int pf, int sf, int mf, std::string s, Model* m);
         void            run(void);
     
     private:
@@ -21,8 +21,10 @@ class Mcmc {
         RandomVariable* rng;
         Model*          model;
         int             chainLength;
+        int             burnIn;
         int             printFrequency;
         int             sampleFrequency;
+        int             mappingFrequency;
         std::string     parmOutFile;
         std::ofstream   parmStrm;
 };

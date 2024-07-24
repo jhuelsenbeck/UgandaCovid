@@ -26,25 +26,25 @@ CondLikeJobMngr::CondLikeJobMngr(Tree* t, ThreadPool* tp, int na) : tree(t), thr
         // sum the number of nodes in the subtree
         if (p->getIsTip() == true)
             {
-            p->setScratch(1);
+            p->setScratchInt(1);
             }
         else
             {
             std::set<Node*>& pDesc = p->getDescendants();
             int sum = 0;
             for (Node* d : pDesc)
-                sum += d->getScratch();
-            p->setScratch(sum + 1);
+                sum += d->getScratchInt();
+            p->setScratchInt(sum + 1);
             }
             
-        if (p->getScratch() != 1 || p == t->getRoot())
+        if (p->getScratchInt() != 1 || p == t->getRoot())
             currentJob->addNode(p);
             
-        if (p->getScratch() > numNodesInJob || p == t->getRoot())
+        if (p->getScratchInt() > numNodesInJob || p == t->getRoot())
             {
             jobNum++;
             p->setJob(currentJob);
-            p->setScratch(1);
+            p->setScratchInt(1);
             if (p != t->getRoot())
                 {
                 currentJob = addJob();

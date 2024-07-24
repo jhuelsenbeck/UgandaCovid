@@ -281,6 +281,152 @@ double Model::lnPriorProbability(void) {
     return lnPriorProb;
 }
 
+void Model::map(void) {
+
+    std::cout << "Begin stochastic mapping" << std::endl;
+    
+    // allocate a vector for probabilities
+    double* probs = new double[numStates];
+    double* probsEnd = probs + numStates;
+    
+    // get a reference to the random number generator
+    RandomVariable& rng = RandomVariable::getInstance();
+    
+    // calculate conditional likelihoods to the root (threaded)
+    clManager->calculateConditionalLikelihoods();
+    
+    // pick a state at the root
+    Node* r = tree->getRoot();
+    double* cl = r->getConditionalLikelihood();
+    double* f = &pi[1][0];
+    double sum = 0.0;
+    for (double* x=probs; x != probsEnd; x++)
+        {
+        (*x) = (*f) * (*cl);
+        sum += (*x);
+        cl++;
+        f++;
+        }
+    double u = rng.uniformRv() * sum;
+    sum = 0.0;
+    int areaId = 0;
+    for (double* x=probs; x != probsEnd; x++)
+        {
+        sum += (*x);
+        if (u < sum)
+            {
+            r->setAreaId(areaId);
+            break;
+            }
+        areaId++;
+        }
+
+    // move up the tree, picking states for each node
+    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
+    for (int n=(int)dpSeq.size()-1; n>=0; n--)
+        {
+        Node* p = dpSeq[n];
+        if (p->getIsAreaFixed() == false && p != tree->getRoot())
+            {
+            int pAncState     = p->getAncestor()->getAreaId();
+            double* p_ij      = p->getTransitionProbability()->begin();
+            p_ij += pAncState * numStates;
+            double* clP_begin = p->getConditionalLikelihood();
+            double* clP_end   = p->getConditionalLikelihoodEnd();
+            
+            sum = 0.0;
+            for (auto cl=clP_begin, x=probs; cl != clP_end; cl++, x++)
+                {
+                (*x) = (*cl) * (*p_ij);
+                sum += (*x);
+                p_ij++;
+                }
+            
+            u = rng.uniformRv() * sum;
+            sum = 0.0;
+            int areaId = 0;
+            for (double* x=probs; x != probsEnd; x++)
+                {
+                sum += (*x);
+                if (u < sum)
+                    {
+                    p->setAreaId(areaId);
+                    break;
+                    }
+                areaId++;
+                }
+                
+            }
+        }
+
+    // simulate along each branch
+    int numChanges = 0;
+    RateMatrix* rateMatrix = q[activeRateMatrix];
+    for (int n=0; n<dpSeq.size(); n++)
+        {
+        Node* p = dpSeq[n];
+        if (p != tree->getRoot())
+            {
+            int begState = p->getAncestor()->getAreaId();
+            int endState = p->getAreaId();
+            TransitionProbabilities* p_ij = p->getTransitionProbability();
+            int v_int = p_ij->getBrlen();
+            double v = (double)v_int * substitutionRate[0];
+            if (v_int == 0)
+                v = 10e-5;
+                
+            int curState;
+            int numRejections = 0;
+            do
+                {
+                curState = begState;
+                int count = 0;
+                double pt = 0.0;
+                while (pt < v)
+                    {
+                    double rate = -(*rateMatrix)(curState,curState);
+                    if (count == 0 && begState != endState)
+                        pt += -log(1.0 - rng.uniformRv()*(1.0 - exp(-rate*v))) / rate;
+                    else
+                        pt += -log(rng.uniformRv()) / rate;
+                    if (pt < v)
+                        {
+                        double u = rng.uniformRv() * rate;
+                        sum = 0.0;
+                        for (int j=0; j<numStates; j++)
+                            {
+                            if (j != curState)
+                                {
+                                sum += (*rateMatrix)(curState, j);
+                                if (u < sum)
+                                    {
+                                    curState = j;
+                                    break;
+                                    }
+                                }
+                            }
+                        count++;
+                        }
+                    }
+                    
+                if (curState != endState)
+                    numRejections++;
+                else
+                    numChanges += count;
+                if (numRejections > 1000)
+                    Msg::warning("Large number of rejections!");
+                } while(curState != endState);
+            
+            std::cout << p->getIndex() << " -- " << begState << " -> " << endState << std::endl;
+            if (p->getAreaId() == -1 || p->getAncestor()->getAreaId() == -1)
+                exit(1);
+            }
+        }
+    delete [] probs;
+    
+    std::cout << "Number of area changes = " << numChanges << std::endl;
+}
+
 void Model::reject(void) {
 
     // adjust for rejection

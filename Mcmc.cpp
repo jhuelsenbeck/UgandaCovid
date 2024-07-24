@@ -9,11 +9,13 @@
 
 
 
-Mcmc::Mcmc(int cl, int pf, int sf, std::string s, Model* m) {
+Mcmc::Mcmc(int cl, int bi, int pf, int sf, int mf, std::string s, Model* m) {
 
     chainLength = cl;
+    burnIn = bi;
     printFrequency = pf;
     sampleFrequency = sf;
+    mappingFrequency = mf;
     parmOutFile = s;
     model = m;
     rng = &RandomVariable::getInstance();
@@ -90,6 +92,10 @@ void Mcmc::run(void) {
             
         if (n % 1000 == 0)
             info.print();
+            
+        // perform stochastic mapping
+        if (n % mappingFrequency == 0 && n > burnIn)
+            model->map();
         }
         
     // close output files

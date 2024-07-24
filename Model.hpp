@@ -26,6 +26,7 @@ class Model {
         std::string                     getUpdateType(void) { return updateType; }
         double                          lnLikelihood(void);
         double                          lnPriorProbability(void);
+        void                            map(void);
         void                            reject(void);
         double                          update(void);
     

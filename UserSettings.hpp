@@ -16,7 +16,9 @@ class UserSettings {
                                     static UserSettings singleInstance;
                                     return singleInstance;
                                     }
+        int                     getBurnIn(void) { return burnIn; }
         int                     getChainLength(void) { check(); return chainLength; }
+        int                     getMappingFrequency(void) { return mappingFrequency; }
         int                     getNumTreads(void) { check(); return numThreads; }
         std::string             getOutputFile(void) { check(); return outFile; }
         int                     getPrintFrequency(void) { check(); return printFrequency; }
@@ -32,9 +34,11 @@ class UserSettings {
         std::string             treeFile;
         std::string             tsvFile;
         std::string             outFile;
+        int                     burnIn;
         int                     chainLength;
         int                     printFrequency;
         int                     sampleFrequency;
+        int                     mappingFrequency;
         int                     numThreads;
 };
 

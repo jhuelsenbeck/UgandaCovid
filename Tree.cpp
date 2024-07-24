@@ -1,14 +1,24 @@
 #include "Msg.hpp"
 #include "Node.hpp"
+#include "RandomVariable.hpp"
 #include "Tree.hpp"
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 
 Tree::Tree(const Tree& t) {
 
     clone(t);
+}
+
+Tree::Tree(Node* rootPattern) {
+
+    std::map<Node*,Node*> nodeMap;
+    root = copy(rootPattern, nodeMap);
+    initializeDownPassSequence();
+    print();
 }
 
 Tree::Tree(std::string fileName) {
@@ -192,6 +202,31 @@ void Tree::clone(const Tree& t) {
         this->downPassSequence[i] = nodes[t.downPassSequence[i]->getOffset()];
 }
 
+Node* Tree::copy(Node* pPattern, std::map<Node*,Node*>& nodeMap) {
+
+    if (pPattern == nullptr)
+        return nullptr;
+    
+    std::map<Node*,Node*>::iterator it = nodeMap.find(pPattern);
+    if (it != nodeMap.end())
+        return it->second;
+
+    Node* newP = addNode();
+    nodeMap.insert( std::make_pair(pPattern, newP) );
+    newP->setIndex(pPattern->getIndex());
+    newP->setBrlen(pPattern->getBrlen());
+    newP->setAreaId(pPattern->getAreaId());
+    newP->setName(pPattern->getName());
+    newP->setIsTip(pPattern->getIsTip());
+    newP->setAncestor( copy(pPattern->getAncestor(), nodeMap) );
+
+    std::set<Node*>& pPatternDesc = pPattern->getDescendants();
+     for (Node* d : pPatternDesc)
+        newP->addDescendant( copy(d, nodeMap) );
+
+    return newP;
+}
+
 void Tree::deleteNodes(void) {
 
     for (int i=0, n=(int)nodes.size(); i<n; i++)
@@ -199,12 +234,19 @@ void Tree::deleteNodes(void) {
     nodes.clear();
 }
 
+std::string Tree::getNewickString(void) {
+
+    std::stringstream strm;
+    writeTree(root, strm);
+    strm << ";";
+    return strm.str();
+}
+
 void Tree::initializeDownPassSequence(void) {
 
     downPassSequence.clear();
     interiorDownPassSequence.clear();
     passDown(root);
-    endDownPassSequence = downPassSequence[0] + downPassSequence.size();
 }
 
 void Tree::passDown(Node* p) {
@@ -228,6 +270,58 @@ void Tree::print(void) {
 void Tree::print(Node* subtree) {
 
     showNode(subtree, 0);
+}
+
+Tree* Tree::prune(int ntLower, int ntUpper) {
+
+    // calculate how many nodes are above every point in the tree
+    for (int i=0, n=(int)downPassSequence.size(); i<n; i++)
+        {
+        Node* p = downPassSequence[i];
+        if (p->getIsTip() == true)
+            {
+            p->setScratchInt(1);
+            if (p->getAreaId() == -1)
+                p->setScratchBool(true);
+            else
+                p->setScratchBool(false);
+            }
+        else
+            {
+            std::set<Node*>& pDesc = p->getDescendants();
+            int sum = 0;
+            bool hasMissing = false;
+            for (Node* d : pDesc)
+                {
+                sum += d->getScratchInt();
+                if (d->getScratchBool() == true)
+                    hasMissing = true;
+                }
+            p->setScratchInt(sum);
+            p->setScratchBool(hasMissing);
+            }
+        }
+                
+    // find first node with
+    std::vector<Node*> candidateNodes;
+    for (int i=0, n=(int)downPassSequence.size(); i<n; i++)
+        {
+        Node* p = downPassSequence[i];
+        if (p->getScratchInt() >= ntLower && p->getScratchInt() <= ntUpper /*&& p->getScratchBool() == true*/)
+            candidateNodes.push_back(p);
+        }
+        
+    // choose a candidate node at random
+    std::cout << "Number of candidate subtrees = " << candidateNodes.size() << std::endl;
+    if (candidateNodes.size() == 0)
+        Msg::error("No tree nodes were found that met your criteria. Tough luck!");
+    RandomVariable& rng = RandomVariable::getInstance();
+    Node* subtreeNode = candidateNodes[(int)(rng.uniformRv()*candidateNodes.size())];
+    
+    // make a new tree with that is a copy of this subtree
+    Tree* subtree = new Tree(subtreeNode);
+    
+    return subtree;
 }
 
 void Tree::readAhead(std::string& token, std::string& newickStr, int& i) {
@@ -272,4 +366,27 @@ void Tree::showNode(Node* p, int indent) {
         for (Node* d : pDesc)
             showNode(d, indent + 3);
         }
+}
+
+void Tree::writeTree(Node* p, std::stringstream& strm) {
+
+    if (p == nullptr)
+        return;
+        
+    std::set<Node*>& pDesc = p->getDescendants();
+    
+    if (p->getIsTip() == false)
+        strm << "(";
+    else
+        strm << p->getName() << ":" << p->getBrlen();
+    
+    for (std::set<Node*>::iterator it = pDesc.begin(); it != pDesc.end(); it++)
+        {
+        if (it != pDesc.begin())
+            strm << ",";
+        writeTree(*it, strm);
+        }
+        
+    if (p->getIsTip() == false)
+        strm << ")" << ":" << p->getBrlen();
 }
