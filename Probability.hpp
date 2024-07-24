@@ -72,6 +72,10 @@ namespace  Probability {
         double  cdf(double mu, double sigma, double x);
         double  quantile(double mu, double sigma, double p);
     }
+
+    namespace Poisson {
+        int     rv(RandomVariable* rng, double lambda) ;
+    }
     
     namespace Uniform {
     
@@ -97,6 +101,9 @@ namespace  Probability {
         void    normalize(std::vector<double>& vec);
         void    normalize(std::vector<double>& vec, double min);
         double  pointNormal(double prob);
+        int     poissonLow(RandomVariable* rng, double lambda);
+        int     poissonInver(RandomVariable* rng, double lambda);
+        int     poissonRatioUniforms(RandomVariable* rng, double lambda);
         double  rndGamma(RandomVariable* rng, double s);
         double  rndGamma1(RandomVariable* rng, double s);
         double  rndGamma2(RandomVariable* rng, double s);

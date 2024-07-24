@@ -39,12 +39,7 @@ int main(int argc, char* argv[]) {
     std::cout << "   * Setting up phylogenetic model" << std::endl;
     Tree* tree = new Tree(settings.getTreeFile());
     CondLikeJobMngr clMngr(tree, threadPool, meta.getNumAreas());
-    
-    // TEMP: copy a subtree
-//    Tree* subtree = tree->prune(100, 1000);
-//    std::cout << subtree->getNewickString() << std::endl;
-//    exit(1);
-    
+        
     // assign an area to each tip of the tree
     meta.assignTreeTipAreas(tree);
     
@@ -56,7 +51,7 @@ int main(int argc, char* argv[]) {
     Model model(tree, Q, threadPool, &clMngr);
     
     // run the MCMC algorithm
-    Mcmc mcmc(settings.getChainLength(), settings.getPrintFrequency(), settings.getSampleFrequency(), settings.getMappingFrequency(), settings.getOutputFile(), &model);
+    Mcmc mcmc(settings.getChainLength(), settings.getBurnIn(), settings.getPrintFrequency(), settings.getSampleFrequency(), settings.getMappingFrequency(), settings.getOutputFile(), &model);
     mcmc.run();
     
     // clean up

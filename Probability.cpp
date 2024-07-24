@@ -499,6 +499,45 @@ double Probability::Normal::quantile(double mu, double sigma, double p) {
 	return x;
 }
 
+#pragma mark - Poisson
+
+int Probability::Poisson::rv(RandomVariable* rng, double lambda) {
+
+	if (lambda < 17.0)
+		{
+		if (lambda < 1.0e-6)
+			{
+			if (lambda == 0.0) 
+				return 0;
+			if (lambda < 0.0)
+				{
+				/* there should be an error here */
+				}
+
+			/* For extremely small lambda we calculate the probabilities of x = 1
+			   and x = 2 (ignoring higher x). The reason for using this 
+			   method is to prevent numerical inaccuracies in other methods. */
+			return Probability::Helper::poissonLow(rng, lambda);
+			}
+		else 
+			{
+			/* use the inversion method */
+            return Probability::Helper::poissonInver(rng, lambda);
+			}
+		}
+	else 
+		{
+		if (lambda > 2.0e9) 
+			{
+			/* there should be an error here */
+			}
+		/* use the ratio-of-uniforms method */
+        return Probability::Helper::poissonRatioUniforms(rng, lambda);
+		}
+
+	return 0;
+}
+
 #pragma mark - Uniform
 
 double  Probability::Uniform::pdf(double low, double high, double x) {
@@ -1016,6 +1055,11 @@ double Probability::Helper::incompleteGamma (double x, double alpha, double LnGa
         return (gin);
 }
 
+double Probability::Helper::lnFactorial(int n) {
+
+    return lnGamma((double)(n+1));
+}
+
 void Probability::Helper::normalize(std::vector<double>& vec) {
 
     double sum = 0.0;
@@ -1079,6 +1123,94 @@ double Probability::Helper::pointNormal(double prob) {
 	double y = sqrt( log(1.0/(p1*p1)) );
 	double z = y + ((((y*a4+a3)*y+a2)*y+a1)*y+a0) / ((((y*b4+b3)*y+b2)*y+b1)*y+b0);
 	return ( p < 0.5 ? -z : z );
+}
+
+int Probability::Helper::poissonLow(RandomVariable* rng, double lambda) {
+
+	double d = sqrt(lambda);
+	if (rng->uniformRv() >= d)
+		return 0;
+	double r = rng->uniformRv() * d;
+	if (r > lambda * (1.0 - lambda)) 
+		return 0;
+	if (r > 0.5 * lambda * lambda * (1.0 - lambda)) 
+		return 1;
+	return 2;
+}
+
+int Probability::Helper::poissonInver(RandomVariable* rng, double lambda) {
+
+	const int bound = 130;
+	static double p_L_last = -1.0;
+	static double p_f0;
+	int x;
+
+	if (lambda != p_L_last) 
+		{
+		p_L_last = lambda;
+		p_f0 = exp(-lambda);
+		} 
+
+	while (1) 
+		{  
+		double r = rng->uniformRv();
+		x = 0;
+		double f = p_f0;
+		do 
+			{
+			r -= f;
+			if (r <= 0.0) 
+				return x;
+			x++;
+			f *= lambda;
+			r *= x;
+			} while (x <= bound);
+		}
+}
+
+int Probability::Helper::poissonRatioUniforms(RandomVariable* rng, double lambda) {
+
+	static double p_L_last = -1.0;  /* previous L */
+	static double p_a;              /* hat center */
+	static double p_h;              /* hat width */
+	static double p_g;              /* ln(L) */
+	static double p_q;              /* value at mode */
+	static int p_bound;             /* upper bound */
+	int mode;                       /* mode */
+	double u;                       /* uniform random */
+	double lf;                      /* ln(f(x)) */
+	double x;                       /* real sample */
+	int k;                          /* integer sample */
+
+	if (p_L_last != lambda) 
+		{
+		p_L_last = lambda;
+		p_a = lambda + 0.5;
+		mode = (int)lambda;
+		p_g  = log(lambda);
+		p_q = mode * p_g - lnFactorial(mode);
+		p_h = sqrt(2.943035529371538573 * (lambda + 0.5)) + 0.8989161620588987408;
+		p_bound = (int)(p_a + 6.0 * p_h);
+		}
+
+	while(1) 
+		{
+		u = rng->uniformRv();
+		if (u == 0.0)
+			continue;
+		x = p_a + p_h * (rng->uniformRv() - 0.5) / u;
+		if (x < 0 || x >= p_bound)
+			continue;
+		k = (int)(x);
+		lf = k * p_g - lnFactorial(k) - p_q;
+		if (lf >= u * (4.0 - u) - 3.0) 
+			break;
+		if (u * (u - lf) > 1.0) 
+			continue;
+		if (2.0 * log(u) <= lf) 
+			break;
+		}
+	return(k);
 }
 
 double Probability::Helper::rndGamma(RandomVariable* rng, double s) {

@@ -6,6 +6,7 @@
 #include <string>
 #include "Threads.hpp"
 class CondLikeJobMngr;
+class RandomVariable;
 class RateMatrix;
 class ThreadPool;
 class TransitionProbabilitiesMngr;
@@ -31,8 +32,14 @@ class Model {
         double                          update(void);
     
     private:
+        void                            assignNodeStates(RandomVariable* rng);
         void                            checkConditionalLikelihoods(void);
+        void                            deleteHistories(void);
         void                            initializeConditionalLikelihoods(void);
+        void                            initializeHistories(void);
+        void                            initializeMatrixPowers(int num);
+        void                            sampleHistoriesUsingRejectionSamplign(RandomVariable* rng);
+        void                            sampleHistoriesUsingUniformization(RandomVariable* rng);
         void                            switchActiveRateMatrix(void);
         double                          updateSubstitutionRate(void);
         double                          updatePi(void);
@@ -44,6 +51,8 @@ class Model {
         Tree*                           tree;
         int                             activeRateMatrix;
         RateMatrix*                     q[2];
+        RateMatrix*                     uniformizedRateMatrix;
+        std::vector<RateMatrix*>        matrixPowers;
         TransitionProbabilitiesMngr*    tiMngr;
         ThreadPool*                     threadPool;
         double*                         condLikes;

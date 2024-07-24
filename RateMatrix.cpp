@@ -98,3 +98,19 @@ void RateMatrix::set(double* pi, double* r) {
     for (auto p=begin(), endP=end(); p != endP; p++)
         (*p) *= factor;
 }
+
+double RateMatrix::uniformize(RateMatrix* u) {
+
+	double mu = 0.0;
+	for (int i=0; i<numRows; i++)
+		{
+		if ( -(*this)(i,i) >= mu )
+			mu = -(*this)(i,i);
+		}
+	for (int i=0; i<numRows; i++)
+		for (int j=0; j<numCols; j++)
+			(*u)(i,j) = (*this)(i,j) / mu;
+	for (int i=0; i<numRows; i++)
+		(*u)(i,i) += 1.0;
+	return mu;
+}

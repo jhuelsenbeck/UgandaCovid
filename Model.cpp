@@ -1,6 +1,7 @@
 #include <chrono>
 #include <iomanip>
 #include "CondLikeJobMngr.hpp"
+#include "History.hpp"
 #include "Model.hpp"
 #include "Msg.hpp"
 #include "Node.hpp"
@@ -50,11 +51,15 @@ Model::Model(Tree* tp, RateMatrix* m, ThreadPool* thp, CondLikeJobMngr* mngr) {
     (*q[1]) = (*q[0]);
     //std::cout << *q[0] << std::endl;
     //std::cout << *q[1] << std::endl;
+    uniformizedRateMatrix = new RateMatrix(*m);
     
     // set up the transition probabilities
     tiMngr = new TransitionProbabilitiesMngr(this, tree, numStates, threadPool);
     tiMngr->updateTransitionProbabilities(substitutionRate[0]);
         
+    // set up histories for each node
+    initializeHistories();
+    
     // set up the conditional likelihoods (must be done after tiMngr is instantiated
     initializeConditionalLikelihoods();
 
@@ -63,11 +68,15 @@ Model::Model(Tree* tp, RateMatrix* m, ThreadPool* thp, CondLikeJobMngr* mngr) {
 
 Model::~Model(void) {
 
+    deleteHistories();
     delete tree;
     delete q[0];
     delete q[1];
+    delete uniformizedRateMatrix;
     delete tiMngr;
     delete [] condLikes;
+    for (int i=0; i<matrixPowers.size(); i++)
+        delete matrixPowers[i];
 }
 
 void Model::accept(void) {
@@ -76,6 +85,79 @@ void Model::accept(void) {
     substitutionRate[0] = substitutionRate[1];
     pi[0] = pi[1];
     r[0] = r[1];
+}
+
+void Model::assignNodeStates(RandomVariable* rng) {
+
+    // allocate a vector for probabilities
+    double* probs = new double[numStates];
+    double* probsEnd = probs + numStates;
+
+    // pick a state at the root
+    Node* r = tree->getRoot();
+    double* cl = r->getConditionalLikelihood();
+    double* f = &pi[1][0];
+    double sum = 0.0;
+    for (double* x=probs; x != probsEnd; x++)
+        {
+        (*x) = (*f) * (*cl);
+        sum += (*x);
+        cl++;
+        f++;
+        }
+    double u = rng->uniformRv() * sum;
+    sum = 0.0;
+    int areaId = 0;
+    for (double* x=probs; x != probsEnd; x++)
+        {
+        sum += (*x);
+        if (u < sum)
+            {
+            r->setAreaId(areaId);
+            break;
+            }
+        areaId++;
+        }
+
+    // move up the tree, picking states for each node
+    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
+    for (int n=(int)dpSeq.size()-1; n>=0; n--)
+        {
+        Node* p = dpSeq[n];
+        if (p->getIsAreaFixed() == false && p != tree->getRoot())
+            {
+            int pAncState     = p->getAncestor()->getAreaId();
+            double* p_ij      = p->getTransitionProbability()->begin();
+            p_ij += pAncState * numStates;
+            double* clP_begin = p->getConditionalLikelihood();
+            double* clP_end   = p->getConditionalLikelihoodEnd();
+            
+            sum = 0.0;
+            for (auto cl=clP_begin, x=probs; cl != clP_end; cl++, x++)
+                {
+                (*x) = (*cl) * (*p_ij);
+                sum += (*x);
+                p_ij++;
+                }
+            
+            u = rng->uniformRv() * sum;
+            sum = 0.0;
+            int areaId = 0;
+            for (double* x=probs; x != probsEnd; x++)
+                {
+                sum += (*x);
+                if (u < sum)
+                    {
+                    p->setAreaId(areaId);
+                    break;
+                    }
+                areaId++;
+                }
+                
+            }
+        }
+
+    delete [] probs;
 }
 
 void Model::checkConditionalLikelihoods(void) {
@@ -93,6 +175,16 @@ void Model::checkConditionalLikelihoods(void) {
             Msg::warning("Problem in conditional likelihoods");
         if (p->getIsTip() == true && sum == 0.0)
             Msg::warning("Did not initialize tip correctly");
+        }
+}
+
+void Model::deleteHistories(void) {
+
+    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
+    for (auto p=dpSeq.begin(); p != dpSeq.end(); p++)
+        {
+        History* h = (*p)->getHistory();
+        delete h;
         }
 }
 
@@ -150,6 +242,32 @@ void Model::initializeConditionalLikelihoods(void) {
 #   if 1
     checkConditionalLikelihoods();
 #   endif
+}
+
+void Model::initializeHistories(void) {
+
+    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
+    for (auto p=dpSeq.begin(); p != dpSeq.end(); p++)
+        {
+        History* h = new History;
+        (*p)->setHistory(h);
+        }
+}
+
+void Model::initializeMatrixPowers(int num) {
+
+    if (num < 2)
+        num = 2;
+    if (matrixPowers.size() < num)
+        {
+        for (int i=0; i<num-matrixPowers.size(); i++)
+            matrixPowers.push_back(new RateMatrix(*uniformizedRateMatrix));
+        }
+    
+    matrixPowers[0]->setIdentity();
+    (*matrixPowers[1]) = (*uniformizedRateMatrix);
+    for (int i=2, n=(int)matrixPowers.size(); i<n; i++)
+        matrixPowers[i]->multiply( *matrixPowers[i-1], *uniformizedRateMatrix );
 }
 
 #if 1
@@ -282,86 +400,34 @@ double Model::lnPriorProbability(void) {
 }
 
 void Model::map(void) {
-
-    std::cout << "Begin stochastic mapping" << std::endl;
-    
-    // allocate a vector for probabilities
-    double* probs = new double[numStates];
-    double* probsEnd = probs + numStates;
-    
+        
     // get a reference to the random number generator
     RandomVariable& rng = RandomVariable::getInstance();
     
     // calculate conditional likelihoods to the root (threaded)
     clManager->calculateConditionalLikelihoods();
     
-    // pick a state at the root
-    Node* r = tree->getRoot();
-    double* cl = r->getConditionalLikelihood();
-    double* f = &pi[1][0];
-    double sum = 0.0;
-    for (double* x=probs; x != probsEnd; x++)
-        {
-        (*x) = (*f) * (*cl);
-        sum += (*x);
-        cl++;
-        f++;
-        }
-    double u = rng.uniformRv() * sum;
-    sum = 0.0;
-    int areaId = 0;
-    for (double* x=probs; x != probsEnd; x++)
-        {
-        sum += (*x);
-        if (u < sum)
-            {
-            r->setAreaId(areaId);
-            break;
-            }
-        areaId++;
-        }
+    // assign states to each end of every branch
+    assignNodeStates(&rng);
 
-    // move up the tree, picking states for each node
-    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
-    for (int n=(int)dpSeq.size()-1; n>=0; n--)
-        {
-        Node* p = dpSeq[n];
-        if (p->getIsAreaFixed() == false && p != tree->getRoot())
-            {
-            int pAncState     = p->getAncestor()->getAreaId();
-            double* p_ij      = p->getTransitionProbability()->begin();
-            p_ij += pAncState * numStates;
-            double* clP_begin = p->getConditionalLikelihood();
-            double* clP_end   = p->getConditionalLikelihoodEnd();
-            
-            sum = 0.0;
-            for (auto cl=clP_begin, x=probs; cl != clP_end; cl++, x++)
-                {
-                (*x) = (*cl) * (*p_ij);
-                sum += (*x);
-                p_ij++;
-                }
-            
-            u = rng.uniformRv() * sum;
-            sum = 0.0;
-            int areaId = 0;
-            for (double* x=probs; x != probsEnd; x++)
-                {
-                sum += (*x);
-                if (u < sum)
-                    {
-                    p->setAreaId(areaId);
-                    break;
-                    }
-                areaId++;
-                }
-                
-            }
-        }
+    // sample history for each branch
+    sampleHistoriesUsingRejectionSamplign(&rng);
+}
 
-    // simulate along each branch
+void Model::reject(void) {
+
+    // adjust for rejection
+    substitutionRate[1] = substitutionRate[0];
+    pi[1] = pi[0];
+    r[1] = r[0];
+    switchActiveRateMatrix();
+}
+
+void Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
+
     int numChanges = 0;
     RateMatrix* rateMatrix = q[activeRateMatrix];
+    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
     for (int n=0; n<dpSeq.size(); n++)
         {
         Node* p = dpSeq[n];
@@ -386,13 +452,13 @@ void Model::map(void) {
                     {
                     double rate = -(*rateMatrix)(curState,curState);
                     if (count == 0 && begState != endState)
-                        pt += -log(1.0 - rng.uniformRv()*(1.0 - exp(-rate*v))) / rate;
+                        pt += -log(1.0 - rng->uniformRv()*(1.0 - exp(-rate*v))) / rate;
                     else
-                        pt += -log(rng.uniformRv()) / rate;
+                        pt += -log(rng->uniformRv()) / rate;
                     if (pt < v)
                         {
-                        double u = rng.uniformRv() * rate;
-                        sum = 0.0;
+                        double u = rng->uniformRv() * rate;
+                        double sum = 0.0;
                         for (int j=0; j<numStates; j++)
                             {
                             if (j != curState)
@@ -413,27 +479,96 @@ void Model::map(void) {
                     numRejections++;
                 else
                     numChanges += count;
-                if (numRejections > 1000)
+                if (numRejections > 10000)
                     Msg::warning("Large number of rejections!");
                 } while(curState != endState);
             
-            std::cout << p->getIndex() << " -- " << begState << " -> " << endState << std::endl;
             if (p->getAreaId() == -1 || p->getAncestor()->getAreaId() == -1)
-                exit(1);
+                Msg::error("Area assignment at at least one end of branch is ambiguous");
             }
         }
-    delete [] probs;
-    
-    std::cout << "Number of area changes = " << numChanges << std::endl;
 }
 
-void Model::reject(void) {
+void Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
 
-    // adjust for rejection
-    substitutionRate[1] = substitutionRate[0];
-    pi[1] = pi[0];
-    r[1] = r[0];
-    switchActiveRateMatrix();
+    RateMatrix* rateMatrix = q[activeRateMatrix];
+    double mu = rateMatrix->uniformize(uniformizedRateMatrix);
+    initializeMatrixPowers(20);
+    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
+    std::vector<double> changeTimes;
+    std::set<Change*> changesToRemove;
+    for (int nde=0; nde<dpSeq.size(); nde++)
+        {
+        Node* p = dpSeq[nde];
+        if (p != tree->getRoot())
+            {
+            // get information on branch
+            TransitionProbabilities* p_ij = p->getTransitionProbability();
+            int v_int = p_ij->getBrlen();
+            double v = (double)v_int * substitutionRate[0];
+            if (v_int == 0)
+                v = 10e-5;
+            double rate = mu * v;
+            History* h = p->getHistory();
+            int a = p->getAncestor()->getAreaId();
+            int b = p->getAreaId();
+            
+            // sample number of events
+            double g = (*p_ij)(a,b) * rng->uniformRv();
+            int n = 0;
+            double sum = 0.0;
+            double nFactorial = 1.0;
+            for (int i=0; i<20; i++)
+                {
+                sum += (*matrixPowers[i])(a,b) * exp(-rate) * pow(rate, i) / nFactorial;
+                if (sum > g)
+                    {
+                    n = i;
+                    break;
+                    }
+                nFactorial *= (i+1);
+                }
+                
+            // sample the series of events
+            h->clearHistory();
+            int curState = a;
+            for (int i=1; i<=n; i++)
+                {
+                double u = rng->uniformRv();
+                sum = 0.0;
+                for (int j=0; j<numStates; j++)
+                    {
+                    sum += (*matrixPowers[1])(curState,j) * (*matrixPowers[n-i])(j,b);
+                    if (u < sum)
+                        {
+                        h->addChange(curState, j, 0.0);
+                        curState = j;
+                        break;
+                        }
+                    }
+                }
+                
+            // assign the times
+            changeTimes.resize(n);
+            for (int i=0; i<n; i++)
+                changeTimes[i] = rng->uniformRv();
+            sort(changeTimes.begin(), changeTimes.end());
+            std::set<Change*>& changes = h->getChanges();
+            int idx = 0;
+            for (Change* c : changes)
+                c->time = changeTimes[idx++];
+                
+            // remove self changes
+            changesToRemove.clear();
+            for (Change* c : changes)
+                {
+                if (c->begState == c->endState)
+                    changesToRemove.insert(c);
+                }
+            h->removeChanges(changesToRemove);
+            
+            }
+        }
 }
 
 void Model::switchActiveRateMatrix(void) {

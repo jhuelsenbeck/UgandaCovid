@@ -4,6 +4,7 @@
 #include <set>
 #include <string>
 class CondLikeJob;
+class History;
 class TransitionProbabilities;
 
 
@@ -22,6 +23,7 @@ class Node {
         double*                     getConditionalLikelihoodEnd(void) { return clEnd; }
         CondLikeJob*                getDependentJob(void) { return dependentJob; }
         std::set<Node*>&            getDescendants(void) { return descendants; }
+        History*                    getHistory(void) { return history; }
         int                         getIndex(void) { return index; }
         bool                        getIsTip(void) { return isTip; }
         CondLikeJob*                getJob(void) { return job; }
@@ -40,6 +42,7 @@ class Node {
         void                        setConditionalLikelihood(double* p) { cl = p; }
         void                        setConditionalLikelihoodEnd(double* p) { clEnd = p; }
         void                        setDependentJob(CondLikeJob* j) { dependentJob = j; }
+        void                        setHistory(History* h) { history = h; }
         void                        setIndex(int x) { index = x; }
         void                        setIsTip(bool tf) { isTip = tf; }
         void                        setJob(CondLikeJob* j) { job = j; }
@@ -54,6 +57,7 @@ class Node {
         double*                     cl;
         double*                     clEnd;
         TransitionProbabilities*    tiProb;
+        History*                    history;
         int                         index;
         int                         offset;
         int                         brlen;

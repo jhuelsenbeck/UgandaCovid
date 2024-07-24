@@ -131,8 +131,9 @@ std::vector<std::string> MetaData::getAreas(void) {
 
 void MetaData::print(void) {
 
+    std::cout << "   * Area code" << std::endl;
     for (area_map::iterator it = areas.begin(); it != areas.end(); it++)
-        std::cout << it->first << " -> " << it->second << std::endl;
+        std::cout << "     " << std::setw(4) << it->second << ": " << it->first << std::endl;
 }
 
 void MetaData::tokenizeString(std::string& str, std::vector<std::string>& tokenValues, std::string& key) {

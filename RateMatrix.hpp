@@ -19,6 +19,7 @@ class RateMatrix : public RealMatrix {
         virtual                    ~RateMatrix(void);
         RateMatrix&                 operator=(const RateMatrix& rhs);
         void                        set(double* pi, double* r);
+        double                      uniformize(RateMatrix* u);
     
     private:
         void                        calculateStationaryFrequencies(double* f);
