@@ -102,6 +102,7 @@ Tree::Tree(std::string fileName) {
                 double x = atof(token.c_str());
                 int xI = round(x);
                 p->setBrlen(xI);
+                p->setBrlenExact(x);
                 readingBranchLength = false;
                 }
             }
@@ -234,6 +235,19 @@ void Tree::deleteNodes(void) {
     nodes.clear();
 }
 
+Node* Tree::findTaxonNamed(std::string tName) {
+    
+    for (Node* p : downPassSequence)
+        {
+        if (p->getIsTip() == true)
+            {
+            if (p->getName() == tName)
+                return p;
+            }
+        }
+    return nullptr;
+}
+
 std::string Tree::getNewickString(void) {
 
     std::stringstream strm;
@@ -345,6 +359,178 @@ void Tree::readAhead(std::string& token, std::string& newickStr, int& i) {
         } while (goodChar == true);
     i = j;
 }
+
+void Tree::removeNodes(std::vector<Node*>& nodesToRemove) {
+    
+    // mark tips to be removed
+    int numNodesMarkedForRemoval = 0;
+    for (Node* p : downPassSequence)
+        p->setScratchBool(false);
+    for (Node* p : nodesToRemove)
+        {
+        p->setScratchBool(true);
+        numNodesMarkedForRemoval++;
+        if (p->getIsTip() == false)
+            Msg::error("Attempting to remove an interior node!");
+        }
+    
+    // mark interior nodes to be removed
+    int numTipsBefore = 0;
+    for (Node* p : downPassSequence)
+        {
+        if (p->getIsTip() == false)
+            {
+            std::set<Node*>& pDesc = p->getDescendants();
+            int numDescendantsMarked = 0;
+            int numDescendantsUnmarked = 0;
+            for (Node* d : pDesc)
+                {
+                if (d->getScratchBool() == true)
+                    numDescendantsMarked++;
+                else
+                    numDescendantsUnmarked++;
+                }
+            if (numDescendantsUnmarked == 0 || numDescendantsUnmarked == 1)
+                {
+                p->setScratchBool(true);
+                numNodesMarkedForRemoval++;
+                }
+            }
+        else
+            {
+            numTipsBefore++;
+            }
+        }
+    
+    // check marking pattern
+    for (Node* p : downPassSequence)
+        {
+        if (p->getScratchBool() == true)
+            {
+            std::set<Node*>& pDesc = p->getDescendants();
+            int numUnmarkedDescendants = 0;
+            for (Node* d : pDesc)
+                {
+                if (d->getScratchBool() == false)
+                    numUnmarkedDescendants++;
+                }
+            if (p->getIsTip() == true && numUnmarkedDescendants != 0)
+                Msg::error("Should not have any descendants for a tip node");
+            else if (p->getIsTip() == false && numUnmarkedDescendants > 1)
+                Msg::error("Should have only 0 or 1 descendant unmarked for removal");
+            }
+        }
+    
+    // remove marked nodes
+    std::vector<double> treeLengthBefore;
+    int totalRemoved = 0;
+    int numRemovedInPass = 0;
+    std::set<Node*> removedNodes;
+    do
+        {
+        treeLengthBefore.push_back(0.0);
+        size_t idx = treeLengthBefore.size()-1;
+        numRemovedInPass = 0;
+        for (Node* p : downPassSequence)
+            {
+            if (p->getScratchBool() == true)
+                {
+                Node* pAnc = p->getAncestor();
+                if (pAnc == nullptr)
+                    Msg::error("Ancestor is null in removeNodes");
+                if (p->getNumDescendants() == 0)
+                    {
+                    pAnc->removeDescendant(p);
+                    p->setAncestor(nullptr);
+                    p->setScratchBool(false);
+                    removedNodes.insert(p);
+                    numRemovedInPass++;
+                    }
+                else if (p->getNumDescendants() == 1)
+                    {
+                    Node* d = p->getFirstDescendant();
+                    if (d == nullptr)
+                        Msg::error("First descendant of p is null");
+                    treeLengthBefore[idx] += p->getBrlenExact();
+                    d->setBrlenExact( p->getBrlenExact() + d->getBrlenExact() );
+                    pAnc->removeDescendant(p);
+                    pAnc->addDescendant(d);
+                    d->setAncestor(pAnc);
+                    p->removeAllDescendants();
+                    p->setAncestor(nullptr);
+                    p->setScratchBool(false);
+                    p->setBrlenExact(0.0);
+                    removedNodes.insert(p);
+                    numRemovedInPass++;
+                    }
+                else
+                    {
+                    treeLengthBefore[idx] += p->getBrlenExact();
+                    }
+                }
+            else
+                {
+                if (p->getAncestor() != nullptr)
+                    treeLengthBefore[idx] += p->getBrlenExact();
+                }
+            }
+        totalRemoved += numRemovedInPass;
+        initializeDownPassSequence();
+        } while (numRemovedInPass > 0);
+    
+    std::cout << "     Removed " << totalRemoved << " nodes out of a total of " << numNodesMarkedForRemoval << " originally marked for removal" << std::endl;
+    
+    initializeDownPassSequence();
+        
+    // check that we don't have any weird things in the tree
+    int numTipsAfter = 0;
+    int numWeirdInterior = 0;
+    double treeLengthAfter = 0.0;
+    for (Node* p : downPassSequence)
+        {
+        if (p->getIsTip() == true)
+            {
+            numTipsAfter++;
+            }
+        else
+            {
+            if (p->getNumDescendants() < 2)
+                numWeirdInterior++;
+            }
+        if (p->getAncestor() != nullptr)
+            treeLengthAfter += p->getBrlenExact();
+        }
+    
+    // set the number of tips
+    numTips = numTipsAfter;
+    
+    // set the number of nodes
+    nodes = downPassSequence;
+    numNodes = (int)nodes.size();
+    for (int i=0, n=(int)nodes.size(); i<n; i++)
+        nodes[i]->setOffset(i);
+    
+    // free the removed nodes
+    for (Node* delNode : removedNodes)
+        delete delNode;
+    
+    if (numWeirdInterior > 0)
+        Msg::error("We have " + std::to_string( numWeirdInterior) + " weird interior nodes");
+    
+    std::cout << "     Number of tips before removal = " << numTipsBefore << std::endl;
+    std::cout << "     Number of tips after removal  = " << numTipsAfter << std::endl;
+    std::cout << "     Tree length before removal    = ";
+    for (int i=0; i<treeLengthBefore.size(); i++)
+        std::cout << treeLengthBefore[i] << " ";
+    std::cout << std::endl;
+    std::cout << "     Tree length after removal     = " << treeLengthAfter << std::endl;
+    std::cout << "     Tree length difference        = ";
+    for (int i=0; i<treeLengthBefore.size(); i++)
+        std::cout << treeLengthBefore[i] - treeLengthAfter << " ";
+    std::cout << std::endl;
+    std::cout << "     " << numTipsAfter << " + " << nodesToRemove.size() << " = " << numTipsAfter + nodesToRemove.size() << std::endl;
+}
+
 
 void Tree::showNode(Node* p, int indent) {
 

@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iomanip>
+#include "BitVector.hpp"
 #include "CondLikeJobMngr.hpp"
 #include "History.hpp"
 #include "Model.hpp"
@@ -412,6 +413,63 @@ void Model::map(void) {
 
     // sample history for each branch
     sampleHistoriesUsingRejectionSamplign(&rng);
+    //sampleHistoriesUsingUniformization(&rng);
+}
+
+int Model::parsimonyScore(void) {
+
+    std::vector<BitVector*> stateSets(tree->getNumNodes());
+    for (int i=0; i<stateSets.size(); i++)
+        stateSets[i] = new BitVector(numStates);
+    std::vector<int> descendantStateCounts(numStates);
+
+    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
+    int n = 0;
+    for (Node* p : dpSeq)
+        {
+        if (p->getIsTip() == true)
+            {
+            int areaId = p->getAreaId();
+            if (areaId == -1)
+                stateSets[p->getIndex()]->set();
+            else
+                stateSets[p->getIndex()]->set(p->getAreaId());
+            }
+        else
+            {
+            std::set<Node*>& pDesc = p->getDescendants();
+            BitVector* pStateSet = stateSets[p->getIndex()];
+            pStateSet->set();
+            for (size_t i=0; i<numStates; i++)
+                descendantStateCounts[i] = 0;
+            for (Node* d : pDesc)
+                {
+                BitVector* dStateSet = stateSets[d->getIndex()];
+                *pStateSet &= *dStateSet;
+                int nSet = 0;
+                for (size_t i=0; i<numStates; i++)
+                    {
+                    bool tf = (*dStateSet)[i];
+                    if (tf == true)
+                        {
+                        nSet++;
+                        descendantStateCounts[i]++;
+                        }
+                    }
+                if (nSet != 0)
+                    {
+                    
+                    }
+//As for calculating parsimony scores on nonbinary trees… in PAUP* I haven’t done too much optimization because my tree searches are always on binary trees and calculation of tree lengths for user-specified trees is fast enough that I never worried much about it. Basically, I just use a simple application of the usual dynamic programming approach where the state set assigned to each node in a postorder traversal is the intersection of the state sets of the children, if it is nonempty. If this intersection is empty, the new state set is the union of the most frequent states in the state sets of the children. The tree length is increased by one each time the union is required. It’s essentially the algorithm of Hartigan 1973 (attached). I use some bit tricks to parallelize over sites (essentially what is described in the attached paper by Goloboff—he claimed his method was faster that PAUP’s and if that’s true it’s probably because he’s branching on special cases because otherwise the algorithms are essentially the same).
+
+                }
+            }
+        }
+
+    for (int i=0; i<stateSets.size(); i++)
+        delete stateSets[i];
+        
+    return n;
 }
 
 void Model::reject(void) {
@@ -433,6 +491,7 @@ void Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
         Node* p = dpSeq[n];
         if (p != tree->getRoot())
             {
+            History* h = p->getHistory();
             int begState = p->getAncestor()->getAreaId();
             int endState = p->getAreaId();
             TransitionProbabilities* p_ij = p->getTransitionProbability();
@@ -445,6 +504,7 @@ void Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
             int numRejections = 0;
             do
                 {
+                h->clearHistory();
                 curState = begState;
                 int count = 0;
                 double pt = 0.0;
@@ -466,6 +526,7 @@ void Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
                                 sum += (*rateMatrix)(curState, j);
                                 if (u < sum)
                                     {
+                                    h->addChange(curState, j, pt);
                                     curState = j;
                                     break;
                                     }
@@ -520,7 +581,9 @@ void Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
             double nFactorial = 1.0;
             for (int i=0; i<20; i++)
                 {
+                std::cout << i << " " << g << " -- " << sum << std::endl;
                 sum += (*matrixPowers[i])(a,b) * exp(-rate) * pow(rate, i) / nFactorial;
+                std::cout << sum << std::endl;
                 if (sum > g)
                     {
                     n = i;
@@ -614,7 +677,7 @@ void Model::updateRateMatrix(void) {
 
 double Model::updateSubstitutionRate(void) {
 
-    updateType = "substitution rate";
+    updateType = "colonization rate";
     RandomVariable& rng = RandomVariable::getInstance();
     double oldValue = substitutionRate[0];
     double tuning = 0.02;

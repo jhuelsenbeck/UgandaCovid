@@ -20,14 +20,17 @@ class Model {
                                         Model(Tree* tp, RateMatrix* m, ThreadPool* thp, CondLikeJobMngr* mngr);
                                        ~Model(void);
         void                            accept(void);
+        int                             getNumStates(void) { return (int)numStates; }
         std::vector<double>&            getPi(void) { return pi[1]; }
         std::vector<double>&            getR(void) { return r[1]; }
         RateMatrix*                     getRateMatrix(void) { return q[activeRateMatrix]; }
         double                          getSubstitutionRate(void) { return substitutionRate[1]; }
+        Tree*                           getTree(void) { return tree; }
         std::string                     getUpdateType(void) { return updateType; }
         double                          lnLikelihood(void);
         double                          lnPriorProbability(void);
         void                            map(void);
+        int                             parsimonyScore(void);
         void                            reject(void);
         double                          update(void);
     

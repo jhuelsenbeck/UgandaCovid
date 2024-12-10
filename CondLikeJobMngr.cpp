@@ -102,6 +102,7 @@ CondLikeJobMngr::CondLikeJobMngr(Tree* t, ThreadPool* tp, int na) : tree(t), thr
         if ((*it)->getNumDependencies() == 0)
             numZeroDependencyJobs++;
         }
+    std::cout << "   * Initializing conditional likelihood jobs" << std::endl;
     std::cout << "     Divided tree into " << jobs.size() << " regions for parallelization" << std::endl;
     std::cout << "     " << numZeroDependencyJobs << " jobs/regions have no dependencies" << std::endl;
     //print();

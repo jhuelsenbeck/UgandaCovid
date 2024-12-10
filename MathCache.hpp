@@ -17,15 +17,15 @@ class MathCache {
         void          power(RealMatrix& m, int power);
         void          transpose(RealMatrix& m, RealMatrix& mT);
 
-        RealMatrix* pushMatrix(size_t rows, size_t columns);
-        RealMatrix* pushMatrix(size_t size);
+        RealMatrix*   pushMatrix(size_t rows, size_t columns);
+        RealMatrix*   pushMatrix(size_t size);
         void          popMatrix(int n);
         DoubleArray*  pushArray(size_t size);
         void          popArray();
 
         static const size_t bufferSize = 16;
 
-        RealMatrix matrixBuffer[bufferSize];
+        RealMatrix   matrixBuffer[bufferSize];
         DoubleArray  arrayBuffer[bufferSize];
         size_t       matrixCount,
                      arrayCount;

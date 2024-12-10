@@ -13,9 +13,9 @@ struct AcceptInfo {
 class McmcInfo {
 
     public:
-        void    accept(std::string& moveStr);
-        void    print(void);
-        void    reject(std::string& moveStr);
+        void                                accept(std::string& moveStr);
+        void                                print(void);
+        void                                reject(std::string& moveStr);
     
     private:
         std::map<std::string,AcceptInfo>    info;

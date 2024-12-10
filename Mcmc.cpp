@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include "HistorySummary.hpp"
 #include "Mcmc.hpp"
 #include "Model.hpp"
 #include "McmcInfo.hpp"
@@ -46,6 +47,7 @@ void Mcmc::run(void) {
     std::cout << "     Initializing likelihood and prior values" << std::endl;
     
     McmcInfo info;
+    HistorySummary summary(model->getNumStates());
     for (int n=1; n<=chainLength; n++)
         {
         // propose a new state
@@ -95,7 +97,10 @@ void Mcmc::run(void) {
             
         // perform stochastic mapping
         if (n % mappingFrequency == 0 && n > burnIn)
+            {
             model->map();
+            summary.addSample(*model->getTree());
+            }
         }
         
     // close output files
@@ -103,6 +108,9 @@ void Mcmc::run(void) {
     
     // print summary of proposals
     info.print();
+    
+    // print transition summary
+    summary.summary();
 }
 
 void Mcmc::print(int n, double lnL) {

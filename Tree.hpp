@@ -21,10 +21,13 @@ class Tree {
         std::vector<Node*>& getInteriorDownPassSequence(void) { return interiorDownPassSequence; }
         std::string         getNewickString(void);
         int                 getNumNodes(void) { return numNodes; }
+        int                 getNumTips(void) { return numTips; }
         Node*               getRoot(void) { return root; }
+        Node*               findTaxonNamed(std::string tName);
         void                print(void);
         void                print(Node* subtree);
         Tree*               prune(int ntLower, int ntUpper);
+        void                removeNodes(std::vector<Node*>& nodesToRemove);
         void                setNumAreas(int x) { numAreas = x; }
     
     private:

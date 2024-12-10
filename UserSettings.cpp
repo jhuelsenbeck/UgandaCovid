@@ -11,11 +11,12 @@ UserSettings::UserSettings(void) {
     treeFile         = "";
     tsvFile          = "";
     outFile          = "";
-    burnIn           = 0;
-    chainLength      = 10;
+    rootDate         = "";
+    burnIn           = 50;
+    chainLength      = 100;
     printFrequency   = 2;
-    sampleFrequency  = 1;
-    mappingFrequency = 1;
+    sampleFrequency  = 5;
+    mappingFrequency = 10;
     numThreads       = 0;
 }
 
@@ -40,6 +41,13 @@ std::string UserSettings::arguments(void) {
     str += std::to_string(mappingFrequency) + " ";
     str += "-x ";
     str += std::to_string(numThreads) + " ";
+    str += "-r ";
+    str += rootDate + " ";
+    for (int i=0; i<boundaryDates.size(); i++)
+        {
+        str += "-d ";
+        str += boundaryDates[i] + " ";
+        }
     return str;
 }
 
@@ -90,6 +98,10 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
                 outFile = argument;
             else if (cmd == "-x")
                 numThreads = atoi(argument.c_str());
+            else if (cmd == "-d")
+                boundaryDates.push_back(argument);
+            else if (cmd == "-r")
+                rootDate = argument;
             else
                 Msg::error("Unknown command " + argument);
             cmd = "";
@@ -110,4 +122,9 @@ void UserSettings::print(void) {
     std::cout << "     Print frequency   = " << printFrequency << std::endl;
     std::cout << "     Sample frequency  = " << sampleFrequency << std::endl;
     std::cout << "     Mapping frequency = " << mappingFrequency << std::endl;
+    std::cout << "     Root date         = " << rootDate << std::endl;
+    std::cout << "     Boundary dates    = ";
+    for (int i=0; i<boundaryDates.size(); i++)
+        std::cout << boundaryDates[i] << " ";
+    std::cout << std::endl;
 }
