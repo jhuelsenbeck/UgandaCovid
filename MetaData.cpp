@@ -221,26 +221,6 @@ void MetaData::assignTimeIntervals(Tree* t, std::vector<std::string> boundaryDat
         intervalInfo.insert( std::make_pair(key,i) );
         }
     
-    
-//    std::vector<std::string> intervalStr = { "Before", "During", "After" };
-//    int rootAge = t->getRoot()->getTime();
-//    int youngestAge = 2 * rootAge;
-//    int lower = rootAge;
-//    int idx = 0;
-//    for (int i=0; i<boundaryDates.size(); i++)
-//        {
-//        CollectionDate date = extractDateInfo(boundaryDates[i]);
-//        int numDays = daysFromCivil(date.year, date.month, date.day);
-//        int upper = numDays;
-//        std::pair<int,int> key = std::make_pair(lower, upper);
-//        intervalInfo.insert( std::make_pair(key,idx) );
-//        idx++;
-//        
-//        lower = upper;
-//        }
-//    std::pair<int,int> key = std::make_pair(lower,youngestAge);
-//    intervalInfo.insert( std::make_pair(key,idx) );
-    
     std::cout << "   * Intervals:" << std::endl;
     for (std::map<std::pair<int,int>,int>::iterator it = intervalInfo.begin(); it != intervalInfo.end(); it++)
         std::cout << "     " << std::setw(6) << it->first.first << " " << std::setw(6) << it->first.second << " -- " << it->second << std::endl;
@@ -529,6 +509,15 @@ void MetaData::print(void) {
     std::cout << "   * Area code" << std::endl;
     for (area_map::iterator it = areas.begin(); it != areas.end(); it++)
         std::cout << "     " << std::setw(4) << it->second << ": " << it->first << std::endl;
+
+    std::cout << "   * Name map:" << std::endl;
+    for (name_map::iterator it = values.begin(); it != values.end(); it++)
+        {
+        std::cout << "     " << std::setw(4) << it->first << ": ";
+//        for (int i=0; i<it->second.size(); it++)
+//            std::cout << it->second[i] << " ";
+        std::cout << std::endl;
+        }
 }
 
 void MetaData::removeMissingAreas(Tree* t) {

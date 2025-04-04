@@ -42,7 +42,7 @@ Tree::Tree(std::string fileName) {
 
     // close the file
     treeFile.close();
-
+    
     // read the Newick string information
     Node* p = nullptr;
     bool readingBranchLength = false;
@@ -109,7 +109,7 @@ Tree::Tree(std::string fileName) {
         }
         
     initializeDownPassSequence();
-    
+        
     std::cout << "     Successfully read tree file \"" << fileName << "\"" << std::endl;
     std::cout << "     Tree has " << numTips << " tips and " << numNodes << " nodes" << std::endl;
 #   if 0

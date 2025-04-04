@@ -100,6 +100,7 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(double rate) {
         double v = (double)it->first * r;
         if (it->first == 0)
             v = MIN_BRLEN;
+        it->second->setCalculatedBrlen(v);
         task->init(id, (int)dim, v, (RealMatrix*)Q, it->second);
         threadPool->pushTask(task);
         ++task;

@@ -43,7 +43,7 @@ class TransitionProbabilitiesTask : public ThreadTask {
            The method has the advantage of error control. The error is controlled by
            setting qValue appropriately (using the function SetQValue). */
         void computeMatrixExponential(MathCache& cache, int qValue, double v, RealMatrix* probs) {
-        
+                
             assert(probs->getNumRows() == probs->getNumCols());
             auto size = probs->getNumRows();
 
@@ -122,10 +122,13 @@ class TransitionProbabilities : public RealMatrix {
         virtual    ~TransitionProbabilities(void);
         size_t      dim(void) { return numRows; }
         int         getBrlen(void) { return brlen; }
+        double      getCalculatedBrlen(void) { return calculatedBrlen; }
         void        setBrlen(int x) { brlen = x; }
+        void        setCalculatedBrlen(double x) { calculatedBrlen = x; }
     
     private:
         int         brlen;
+        double      calculatedBrlen;
 
     friend std::ostream& operator<<(std::ostream& os, const TransitionProbabilities& m);
 };

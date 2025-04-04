@@ -12,11 +12,11 @@ UserSettings::UserSettings(void) {
     tsvFile          = "";
     outFile          = "";
     rootDate         = "";
-    burnIn           = 50;
+    burnIn           = 0;
     chainLength      = 100;
     printFrequency   = 2;
     sampleFrequency  = 5;
-    mappingFrequency = 10;
+    mappingFrequency = 2;
     numThreads       = 0;
 }
 

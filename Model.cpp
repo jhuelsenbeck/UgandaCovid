@@ -13,6 +13,7 @@
 #include "TransitionProbabilitiesMngr.hpp"
 #include "Tree.hpp"
 
+#define MIN_BRLEN 10e-5
 #undef SHOW_LNL_TIME
 
 
@@ -261,14 +262,14 @@ void Model::initializeMatrixPowers(int num) {
         num = 2;
     if (matrixPowers.size() < num)
         {
-        for (int i=0; i<num-matrixPowers.size(); i++)
+        for (size_t i=0, n=num-matrixPowers.size(); i<n; i++)
             matrixPowers.push_back(new RateMatrix(*uniformizedRateMatrix));
         }
     
     matrixPowers[0]->setIdentity();
     (*matrixPowers[1]) = (*uniformizedRateMatrix);
-    for (int i=2, n=(int)matrixPowers.size(); i<n; i++)
-        matrixPowers[i]->multiply( *matrixPowers[i-1], *uniformizedRateMatrix );
+    for (size_t i=2; i<num; i++)
+        matrixPowers[i]->multiply(*uniformizedRateMatrix, *matrixPowers[i-1]);
 }
 
 #if 1
@@ -405,6 +406,8 @@ void Model::map(void) {
     // get a reference to the random number generator
     RandomVariable& rng = RandomVariable::getInstance();
     
+    //tiMngr->updateTransitionProbabilities(getSubstitutionRate());
+    
     // calculate conditional likelihoods to the root (threaded)
     clManager->calculateConditionalLikelihoods();
     
@@ -412,8 +415,9 @@ void Model::map(void) {
     assignNodeStates(&rng);
 
     // sample history for each branch
-    sampleHistoriesUsingRejectionSamplign(&rng);
-    //sampleHistoriesUsingUniformization(&rng);
+    //sampleHistoriesUsingRejectionSamplign(&rng);
+    int numChanges = sampleHistoriesUsingUniformization(&rng);
+    std::cout << "           Number of changes = " << numChanges << std::endl;
 }
 
 int Model::parsimonyScore(void) {
@@ -472,6 +476,15 @@ int Model::parsimonyScore(void) {
     return n;
 }
 
+void Model::printMatrixPowers(void) {
+
+    for (int i=0; i<matrixPowers.size(); i++)
+        {
+        std::cout << "M^{" << i << "}" << std::endl;
+        std::cout << (*matrixPowers[i]) << std::endl;
+        }
+}
+
 void Model::reject(void) {
 
     // adjust for rejection
@@ -481,7 +494,7 @@ void Model::reject(void) {
     switchActiveRateMatrix();
 }
 
-void Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
+int Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
 
     int numChanges = 0;
     RateMatrix* rateMatrix = q[activeRateMatrix];
@@ -548,90 +561,108 @@ void Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
                 Msg::error("Area assignment at at least one end of branch is ambiguous");
             }
         }
+    return numChanges;
 }
 
-void Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
+int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
 
+    double nFactorial[20];
+    nFactorial[0] = 1.0;
+    nFactorial[1] = 1.0;
+    for (int i=2; i<20; i++)
+        nFactorial[i] = nFactorial[i-1] * i;
+    
+    updateRateMatrix();
     RateMatrix* rateMatrix = q[activeRateMatrix];
     double mu = rateMatrix->uniformize(uniformizedRateMatrix);
+    tiMngr->updateTransitionProbabilities(getSubstitutionRate());
+
+    //std::cout << "R" << std::endl;
+    //std::cout << *uniformizedRateMatrix << std::endl;
     initializeMatrixPowers(20);
+    //printMatrixPowers();
+    
     std::vector<Node*>& dpSeq = tree->getDownPassSequence();
     std::vector<double> changeTimes;
     std::set<Change*> changesToRemove;
+    double r = getSubstitutionRate();
+    int numChanges = 0;
     for (int nde=0; nde<dpSeq.size(); nde++)
         {
         Node* p = dpSeq[nde];
         if (p != tree->getRoot())
             {
             // get information on branch
-            TransitionProbabilities* p_ij = p->getTransitionProbability();
-            int v_int = p_ij->getBrlen();
-            double v = (double)v_int * substitutionRate[0];
-            if (v_int == 0)
-                v = 10e-5;
+            TransitionProbabilities* P = p->getTransitionProbability();
+            double v = p->getBrlen() * r;
+            if (v < MIN_BRLEN)
+                v = MIN_BRLEN;
+            
             double rate = mu * v;
             History* h = p->getHistory();
             int a = p->getAncestor()->getAreaId();
             int b = p->getAreaId();
             
             // sample number of events
-            double g = (*p_ij)(a,b) * rng->uniformRv();
+            double g = (*P)(a,b) * rng->uniformRv();
             int n = 0;
             double sum = 0.0;
-            double nFactorial = 1.0;
+            //std::cout << "(" << a << "->" << b << ") v=(" << v << ", " << P->getCalculatedBrlen() << ") r=" << r << " p->getBrlen()=" << p->getBrlen() << ") P(a,b)= " << (*P)(a,b) << std::endl;
             for (int i=0; i<20; i++)
                 {
-                std::cout << i << " " << g << " -- " << sum << std::endl;
-                sum += (*matrixPowers[i])(a,b) * exp(-rate) * pow(rate, i) / nFactorial;
-                std::cout << sum << std::endl;
-                if (sum > g)
+                //std::cout << i << " " << g << " -- " << sum << " " << nFactorial[i] << std::endl;
+                double nProb = (*matrixPowers[i])(a,b) * pow(rate,(double)i) * exp(-rate) / nFactorial[i];
+                sum += nProb;
+                if (g < sum)
                     {
                     n = i;
                     break;
                     }
-                nFactorial *= (i+1);
                 }
                 
             // sample the series of events
-            h->clearHistory();
-            int curState = a;
-            for (int i=1; i<=n; i++)
+            std::vector<int> intermediateStates(n+1);
+            intermediateStates[0] = a;
+            for (int i=1; i<intermediateStates.size(); i++)
                 {
-                double u = rng->uniformRv();
+                double sum = 0.0;
+                for (int j=0; j<numStates; j++)
+                    sum += (*matrixPowers[1])(intermediateStates[i-1],j) * (*matrixPowers[n-i])(j,b);
+                double u = rng->uniformRv() * sum;
                 sum = 0.0;
                 for (int j=0; j<numStates; j++)
                     {
-                    sum += (*matrixPowers[1])(curState,j) * (*matrixPowers[n-i])(j,b);
+                    sum += (*matrixPowers[1])(intermediateStates[i-1],j) * (*matrixPowers[n-i])(j,b);
                     if (u < sum)
                         {
-                        h->addChange(curState, j, 0.0);
-                        curState = j;
+                        intermediateStates[i] = j;
                         break;
                         }
                     }
                 }
-                
-            // assign the times
-            changeTimes.resize(n);
+
+            std::vector<double> intermediateTimes;
             for (int i=0; i<n; i++)
-                changeTimes[i] = rng->uniformRv();
-            sort(changeTimes.begin(), changeTimes.end());
-            std::set<Change*>& changes = h->getChanges();
-            int idx = 0;
-            for (Change* c : changes)
-                c->time = changeTimes[idx++];
-                
-            // remove self changes
-            changesToRemove.clear();
-            for (Change* c : changes)
-                {
-                if (c->begState == c->endState)
-                    changesToRemove.insert(c);
-                }
-            h->removeChanges(changesToRemove);
+                intermediateTimes.push_back(rng->uniformRv()*v);
+            intermediateTimes.push_back(0.0);
+            sort(intermediateTimes.begin(), intermediateTimes.end());
             
+//            for (int i=1; i<intermediateStates.size(); i++)
+//                std::cout << intermediateStates[i-1] << " -> " << intermediateStates[i] << " " << intermediateTimes[i] << std::endl;
+            
+            h->clearHistory();
+            for (int i=1; i<intermediateStates.size(); i++)
+                {
+                if (intermediateStates[i-1] != intermediateStates[i])
+                    {
+                    h->addChange(intermediateStates[i-1], intermediateStates[i], intermediateTimes[i]);
+                    numChanges++;
+                    }
+                }
+                    
             }
         }
+    return numChanges;
 }
 
 void Model::switchActiveRateMatrix(void) {

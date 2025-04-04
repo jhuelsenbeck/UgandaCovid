@@ -41,8 +41,9 @@ class Model {
         void                            initializeConditionalLikelihoods(void);
         void                            initializeHistories(void);
         void                            initializeMatrixPowers(int num);
-        void                            sampleHistoriesUsingRejectionSamplign(RandomVariable* rng);
-        void                            sampleHistoriesUsingUniformization(RandomVariable* rng);
+        void                            printMatrixPowers(void);
+        int                             sampleHistoriesUsingRejectionSamplign(RandomVariable* rng);
+        int                             sampleHistoriesUsingUniformization(RandomVariable* rng);
         void                            switchActiveRateMatrix(void);
         double                          updateSubstitutionRate(void);
         double                          updatePi(void);
