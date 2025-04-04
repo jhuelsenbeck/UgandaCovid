@@ -37,7 +37,7 @@ std::string UserSettings::arguments(void) {
     str += std::to_string(printFrequency) + " ";
     str += "-s ";
     str += std::to_string(sampleFrequency) + " ";
-    str += "-m ";
+    str += "-h ";
     str += std::to_string(mappingFrequency) + " ";
     str += "-x ";
     str += std::to_string(numThreads) + " ";
@@ -92,7 +92,7 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
                 printFrequency = atoi(argument.c_str());
             else if (cmd == "-s")
                 sampleFrequency = atoi(argument.c_str());
-            else if (cmd == "-m")
+            else if (cmd == "-h")
                 mappingFrequency = atoi(argument.c_str());
             else if (cmd == "-o")
                 outFile = argument;
