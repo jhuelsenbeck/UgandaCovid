@@ -4,7 +4,7 @@ CFLAGS   =  -O4 -std=gnu++20 -Ofast
 
 CC       =   g++
 
-OBJECTS  =   main.o CondLikeJob.o CondLikeJobMngr.o Container.o MathCache.o Mcmc.o McmcInfo.o MetaData.o Model.o Msg.o Node.o Probability.o RandomVariable.o RateMatrix.o Threads.o TransitionProbabilities.o TransitionProbabilitiesMngr.o Tree.o UserSettings.o
+OBJECTS  =   main.o BitVector.o CondLikeJob.o CondLikeJobMngr.o Container.o History.o HistorySummary.o MathCache.o Mcmc.o McmcInfo.o MetaData.o Model.o Msg.o Node.o Probability.o RandomVariable.o RateMatrix.o Threads.o TransitionProbabilities.o TransitionProbabilitiesMngr.o Tree.o UserSettings.o
 
 PROGS    = cov
 
@@ -16,6 +16,9 @@ cov:		$(OBJECTS)
 main.o:	main.cpp
 		$(CC) $(CFLAGS) -c main.cpp
 
+BitVector.o:	BitVector.cpp
+		$(CC) $(CFLAGS) -c BitVector.cpp
+
 Container.o:	Container.cpp
 		$(CC) $(CFLAGS) -c Container.cpp
 
@@ -24,6 +27,12 @@ CondLikeJob.o:	CondLikeJob.cpp
 
 CondLikeJobMngr.o:	CondLikeJobMngr.cpp
 		$(CC) $(CFLAGS) -c CondLikeJobMngr.cpp
+
+History.o:	History.cpp
+		$(CC) $(CFLAGS) -c History.cpp
+
+HistorySummary.o:	HistorySummary.cpp
+		$(CC) $(CFLAGS) -c HistorySummary.cpp
 
 MathCache.o:	MathCache.cpp
 		$(CC) $(CFLAGS) -c MathCache.cpp
