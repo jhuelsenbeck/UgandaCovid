@@ -4,10 +4,13 @@
 #include <cmath>
 #include <iostream>
 #include <string>
+#include <vector>
 #include "Threads.hpp"
 class CondLikeJobMngr;
+class MetaData;
 class RandomVariable;
 class RateMatrix;
+class Samples;
 class ThreadPool;
 class TransitionProbabilitiesMngr;
 class Tree;
@@ -17,7 +20,7 @@ class Model {
 
     public:
                                         Model(void) = delete;
-                                        Model(Tree* tp, RateMatrix* m, ThreadPool* thp, CondLikeJobMngr* mngr);
+                                        Model(Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr);
                                        ~Model(void);
         void                            accept(void);
         int                             getNumStates(void) { return (int)numStates; }
@@ -41,7 +44,9 @@ class Model {
         void                            initializeConditionalLikelihoods(void);
         void                            initializeHistories(void);
         void                            initializeMatrixPowers(int num);
+        void                            initializeParameters(Tree* tp, RateMatrix* m);
         void                            printMatrixPowers(void);
+        std::vector<Samples*>           readParameterFile(std::string fn);
         int                             sampleHistoriesUsingRejectionSamplign(RandomVariable* rng);
         int                             sampleHistoriesUsingUniformization(RandomVariable* rng);
         void                            switchActiveRateMatrix(void);

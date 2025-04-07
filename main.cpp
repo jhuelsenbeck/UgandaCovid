@@ -60,13 +60,10 @@ int main(int argc, char* argv[]) {
 
     // set up the jobs for calculating the likelihood
     CondLikeJobMngr clMngr(tree, threadPool, meta.getNumAreas());
-
-    // initialize the rate matrix
-    RateMatrix* Q = new RateMatrix(meta.getAreas());
     
     // set up the model (tree/rate matrix combination)
     // model takes ownership of Q and tree
-    Model model(tree, Q, threadPool, &clMngr);
+    Model model(tree, &meta, threadPool, &clMngr);
     
     // run the MCMC algorithm
     Mcmc mcmc(settings.getChainLength(), settings.getBurnIn(), settings.getPrintFrequency(), settings.getSampleFrequency(), settings.getMappingFrequency(), settings.getOutputFile(), &model);

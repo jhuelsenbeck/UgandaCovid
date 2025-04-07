@@ -26,12 +26,14 @@ TransitionProbabilitiesMngr::TransitionProbabilitiesMngr(Model* m, Tree* t, size
         {
         Node* p = dpSeq[i];
         int v = p->getBrlen();
-        ti_map::iterator it = tiMap.find(v);
+        key.first = v;
+        key.second = 0;
+        ti_map::iterator it = tiMap.find(key);
         if (it == tiMap.end())
             {
             TransitionProbabilities* ti = new TransitionProbabilities(dim);
             ti->setBrlen(v);
-            tiMap.insert( std::make_pair(v,ti) );
+            tiMap.insert( std::make_pair(key,ti) );
             }
         }
     std::cout << "     Tree has " << tiMap.size() << " unique branch lengths" << std::endl;
@@ -53,7 +55,7 @@ void TransitionProbabilitiesMngr::checkTiProbs(void) {
         {
         TransitionProbabilities* p = it->second;
         size_t n = p->dim();
-        std::cout << "matrix " << it->first << std::endl;
+        std::cout << "matrix " << it->first.first << " " << it->first.second << std::endl;
         for (size_t i=0; i<n; i++)
             {
             double sum = 0.0;
@@ -71,7 +73,9 @@ void TransitionProbabilitiesMngr::checkTiProbs(void) {
 
 TransitionProbabilities* TransitionProbabilitiesMngr::getTiProb(int brlen) {
 
-    ti_map::iterator it = tiMap.find(brlen);
+    key.first = brlen;
+    key.second = 0;
+    ti_map::iterator it = tiMap.find(key);
     if (it != tiMap.end())
         return it->second;
     return nullptr;
@@ -81,7 +85,7 @@ void TransitionProbabilitiesMngr::printMap(void) {
 
     for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
         {
-        std::cout << it->first << " (" << it->second << ")" << std::endl;
+        std::cout << it->first.first << ":" << it->first.second << " (" << it->second << ")" << std::endl;
         }
 }
 
@@ -97,8 +101,8 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(double rate) {
     double r = modelPtr->getSubstitutionRate();
     for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
         {
-        double v = (double)it->first * r;
-        if (it->first == 0)
+        double v = (double)it->first.first * r;
+        if (it->first.first == 0)
             v = MIN_BRLEN;
         it->second->setCalculatedBrlen(v);
         task->init(id, (int)dim, v, (RealMatrix*)Q, it->second);

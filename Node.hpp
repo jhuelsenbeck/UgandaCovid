@@ -29,6 +29,7 @@ class Node {
         bool                        getGoodTime(void) { return goodTime; }
         History*                    getHistory(void) { return history; }
         int                         getIndex(void) { return index; }
+        int                         getIntervalIdx(void) { return intervalIdx; }
         bool                        getIsTip(void) { return isTip; }
         CondLikeJob*                getJob(void) { return job; }
         std::string                 getName(void) { return name; }

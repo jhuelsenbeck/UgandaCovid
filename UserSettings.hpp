@@ -19,6 +19,7 @@ class UserSettings {
         std::vector<std::string>    getBoundaryDates(void) { return boundaryDates; }
         int                         getBurnIn(void) { return burnIn; }
         int                         getChainLength(void) { check(); return chainLength; }
+        std::string                 getInitialParameterValues(void) { return initParmsFile; }
         int                         getMappingFrequency(void) { return mappingFrequency; }
         int                         getNumTreads(void) { check(); return numThreads; }
         std::string                 getOutputFile(void) { check(); return outFile; }
@@ -36,6 +37,7 @@ class UserSettings {
         std::string                 treeFile;
         std::string                 tsvFile;
         std::string                 outFile;
+        std::string                 initParmsFile;
         int                         burnIn;
         int                         chainLength;
         int                         printFrequency;

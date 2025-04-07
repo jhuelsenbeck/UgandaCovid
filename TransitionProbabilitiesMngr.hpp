@@ -13,7 +13,8 @@ struct TransitionProbabilityPair {
     TransitionProbabilities*    tipr[2];
 };
 
-typedef std::map<int,TransitionProbabilities*> ti_map;
+typedef std::map<std::pair<int,int>,TransitionProbabilities*> ti_map;
+//typedef std::map<int,TransitionProbabilities*> ti_map;
 
 
 
@@ -34,6 +35,7 @@ class TransitionProbabilitiesMngr {
         ThreadPool*                 threadPool;
         size_t                      dim;
         ti_map                      tiMap;
+        std::pair<int,int>          key;
 };
 
 #endif

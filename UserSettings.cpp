@@ -12,6 +12,7 @@ UserSettings::UserSettings(void) {
     tsvFile          = "";
     outFile          = "";
     rootDate         = "";
+    initParmsFile    = "";
     burnIn           = 0;
     chainLength      = 100;
     printFrequency   = 2;
@@ -84,6 +85,8 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
                 treeFile = argument;
             else if (cmd == "-m")
                 tsvFile = argument;
+            else if (cmd == "-v")
+                initParmsFile = argument;
             else if (cmd == "-n")
                 chainLength = atoi(argument.c_str());
             else if (cmd == "-b")
@@ -117,6 +120,7 @@ void UserSettings::print(void) {
     std::cout << "     Tree file         = \"" << treeFile << "\"" << std::endl;
     std::cout << "     Metadata file     = \"" << tsvFile << "\"" << std::endl;
     std::cout << "     Output file       = \"" << outFile << "\"" << std::endl;
+    std::cout << "     Parameters file   = \"" << initParmsFile << "\"" << std::endl;
     std::cout << "     Chain length      = " << chainLength << std::endl;
     std::cout << "     Burn in period    = " << burnIn << std::endl;
     std::cout << "     Print frequency   = " << printFrequency << std::endl;

@@ -250,6 +250,23 @@ void MetaData::assignTimeIntervals(Tree* t, std::vector<std::string> boundaryDat
     
     if (numFails > 0)
         Msg::error("Failed to set the interval for " + std::to_string(numFails) + " nodes");
+
+    int numSpanningBranches = 0;
+    int numNonSpanningBranches = 0;
+    for (int i=0, n=(int)dpSeq.size(); i<n; i++)
+        {
+        Node* p = dpSeq[i];
+        if (p->getAncestor() != nullptr)
+            {
+            if (p->getIntervalIdx() == p->getAncestor()->getIntervalIdx())
+                numNonSpanningBranches++;
+            else
+                numSpanningBranches++;
+            }
+        }
+    std::cout << "   * Branches spanning interval:" << std::endl;
+    std::cout << "     Num. Spanning:     " << numSpanningBranches << std::endl;
+    std::cout << "     Num. Not Spanning: " << numNonSpanningBranches << std::endl;
 }
 
 void MetaData::assignTreeTipInfo(Tree* t) {

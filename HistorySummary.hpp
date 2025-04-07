@@ -21,7 +21,6 @@ class HistorySummary {
         int                 numStates;
         std::vector<int>    numChanges;
         IntMatrix*          transitionCount;
-        
 };
 
 #endif

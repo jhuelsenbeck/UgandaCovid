@@ -1,71 +1,48 @@
 #include <chrono>
+#include <fstream>
 #include <iomanip>
 #include "BitVector.hpp"
 #include "CondLikeJobMngr.hpp"
 #include "History.hpp"
+#include "MetaData.hpp"
 #include "Model.hpp"
 #include "Msg.hpp"
 #include "Node.hpp"
 #include "Probability.hpp"
 #include "RandomVariable.hpp"
 #include "RateMatrix.hpp"
+#include "Samples.hpp"
 #include "TransitionProbabilities.hpp"
 #include "TransitionProbabilitiesMngr.hpp"
 #include "Tree.hpp"
+#include "UserSettings.hpp"
 
 #define MIN_BRLEN 10e-5
 #undef SHOW_LNL_TIME
 
 
 
-Model::Model(Tree* tp, RateMatrix* m, ThreadPool* thp, CondLikeJobMngr* mngr) {
+Model::Model(Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr) {
+
+    // initialize the rate matrix
+    RateMatrix* Q = new RateMatrix(md->getAreas());
 
     clManager = mngr;
     threadPool = thp;
-    numStates = m->getNumRows();
+    numStates = Q->getNumRows();
     updateType = "";
     
     // check that we can use the SSE instruction set
     std::cout << "     Model has " << numStates << " areas (" << numStates << " X " << numStates << ")" << std::endl;
 
     // set up the model parameters
-    substitutionRate[0] = 0.01; // pick a good starting value?
-    substitutionRate[1] = substitutionRate[0];
-    pi[0].resize(numStates);
-    pi[1].resize(numStates);
-    std::fill(pi[0].begin(), pi[0].end(), 1.0/numStates);
-    pi[1] = pi[0];
-    r[0].resize(numStates*(numStates-1)/2);
-    std::fill(r[0].begin(), r[0].end(), 1.0);
-    double sum = 0.0;
-    for (int i=0; i<r[0].size(); i++)
-        sum += r[0][i];
-    for (int i=0; i<r[0].size(); i++)
-        r[0][i] /= sum;
-    r[1] = r[0];
-
-    // set up the rate matrix and tree
-    tree = tp;
-    activeRateMatrix = 0;
-    q[0] = m;
-    q[1] = new RateMatrix(*m);
-    q[0]->set(&pi[0][0], &r[0][0]);
-    (*q[1]) = (*q[0]);
-    //std::cout << *q[0] << std::endl;
-    //std::cout << *q[1] << std::endl;
-    uniformizedRateMatrix = new RateMatrix(*m);
-    
-    // set up the transition probabilities
-    tiMngr = new TransitionProbabilitiesMngr(this, tree, numStates, threadPool);
-    tiMngr->updateTransitionProbabilities(substitutionRate[0]);
+    initializeParameters(tp, Q);
         
     // set up histories for each node
     initializeHistories();
     
     // set up the conditional likelihoods (must be done after tiMngr is instantiated
     initializeConditionalLikelihoods();
-
-    //clMngr.calculateTime(10);
 }
 
 Model::~Model(void) {
@@ -270,6 +247,96 @@ void Model::initializeMatrixPowers(int num) {
     (*matrixPowers[1]) = (*uniformizedRateMatrix);
     for (size_t i=2; i<num; i++)
         matrixPowers[i]->multiply(*uniformizedRateMatrix, *matrixPowers[i-1]);
+}
+
+void Model::initializeParameters(Tree* tp, RateMatrix* m) {
+    
+    // read a file with initial parameter values
+    bool foundStartingValues = false;
+    UserSettings& settings = UserSettings::getUserSettings();
+    std::vector<double> samplePi;
+    std::vector<double> sampleR;
+    double sampleRate = -1.0;
+    if (settings.getInitialParameterValues() != "")
+        {
+        std::vector<Samples*> samples = readParameterFile(settings.getInitialParameterValues());
+        for (Samples* s : samples)
+            {
+            if (s->getParmName() == "Rate")
+                sampleRate = s->lastSample();
+            else if (s->getParmName() == "R")
+                sampleR.push_back(s->lastSample());
+            else if (s->getParmName() == "Pi")
+                samplePi.push_back(s->lastSample());
+            }
+
+        foundStartingValues = true;
+
+        if (samplePi.size() != numStates)
+            foundStartingValues = false;
+        if (sampleRate < 0.0)
+            foundStartingValues = false;
+        if (sampleR.size() != numStates * (numStates-1) / 2)
+            foundStartingValues = false;
+
+        double sum = 0.0;
+        for (int i=0; i<samplePi.size(); i++)
+            sum += samplePi[i];
+        for (int i=0; i<samplePi.size(); i++)
+            samplePi[i] /= sum;
+        
+        sum = 0.0;
+        for (int i=0; i<sampleR.size(); i++)
+            sum += sampleR[i];
+        for (int i=0; i<sampleR.size(); i++)
+            sampleR[i] /= sum;
+        }
+    
+    // set up subsitution rate
+    if (foundStartingValues == true)
+        substitutionRate[0] = sampleRate;
+    else
+        substitutionRate[0] = 0.01;
+    substitutionRate[1] = substitutionRate[0];
+    
+    // set up stationary frequencies
+    pi[0].resize(numStates);
+    pi[1].resize(numStates);
+    if (foundStartingValues == true)
+        pi[0] = samplePi;
+    else
+        std::fill(pi[0].begin(), pi[0].end(), 1.0/numStates);
+    pi[1] = pi[0];
+    
+    // set up substitution rate
+    r[0].resize(numStates*(numStates-1)/2);
+    if (foundStartingValues == true)
+        r[0] = sampleR;
+    else
+        std::fill(r[0].begin(), r[0].end(), 1.0);
+    double sum = 0.0;
+    for (int i=0; i<r[0].size(); i++)
+        sum += r[0][i];
+    for (int i=0; i<r[0].size(); i++)
+        r[0][i] /= sum;
+    r[1] = r[0];
+    
+    // set colonization rate
+
+    // set up the rate matrix and tree
+    tree = tp;
+    activeRateMatrix = 0;
+    q[0] = m;
+    q[1] = new RateMatrix(*m);
+    q[0]->set(&pi[0][0], &r[0][0]);
+    (*q[1]) = (*q[0]);
+    //std::cout << *q[0] << std::endl;
+    //std::cout << *q[1] << std::endl;
+    uniformizedRateMatrix = new RateMatrix(*m);
+    
+    // set up the transition probabilities
+    tiMngr = new TransitionProbabilitiesMngr(this, tree, numStates, threadPool);
+    tiMngr->updateTransitionProbabilities(substitutionRate[0]);
 }
 
 #if 1
@@ -485,6 +552,53 @@ void Model::printMatrixPowers(void) {
         }
 }
 
+std::vector<Samples*> Model::readParameterFile(std::string fn) {
+
+    std::vector<Samples*> parmSamples;
+    
+    std::ifstream parmStrm( fn.c_str(), std::ios::in );
+    if (!parmStrm)
+        Msg::error("Cannot open file \"" + fn + "\"");
+    
+    std::string lineString = "";
+    int lineNum = 0;
+    while( getline(parmStrm, lineString).good() )
+        {
+        std::istringstream linestream(lineString);
+        int ch;
+        std::string word = "";
+        int wordNum = 0;
+        std::string cmdString = "";
+        do
+            {
+            word = "";
+            linestream >> word;
+            wordNum++;
+            if (lineNum == 0)
+                {
+                /* read the number of taxa/chars from the first line */
+                parmSamples.push_back( new Samples(word) );
+                }
+            else
+                {
+                double x;
+                std::istringstream buf(word);
+                buf >> x;
+                parmSamples[wordNum-1]->addSample(x);
+                }
+            } while ( (ch=linestream.get()) != EOF );
+            
+        lineNum++;
+        }
+
+    //for (Samples* s : parmSamples)
+    //    s->print();
+    
+    parmStrm.close();
+    
+    return parmSamples;
+}
+
 void Model::reject(void) {
 
     // adjust for rejection
@@ -607,10 +721,8 @@ int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
             double g = (*P)(a,b) * rng->uniformRv();
             int n = 0;
             double sum = 0.0;
-            //std::cout << "(" << a << "->" << b << ") v=(" << v << ", " << P->getCalculatedBrlen() << ") r=" << r << " p->getBrlen()=" << p->getBrlen() << ") P(a,b)= " << (*P)(a,b) << std::endl;
             for (int i=0; i<20; i++)
                 {
-                //std::cout << i << " " << g << " -- " << sum << " " << nFactorial[i] << std::endl;
                 double nProb = (*matrixPowers[i])(a,b) * pow(rate,(double)i) * exp(-rate) / nFactorial[i];
                 sum += nProb;
                 if (g < sum)
@@ -646,10 +758,7 @@ int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
                 intermediateTimes.push_back(rng->uniformRv()*v);
             intermediateTimes.push_back(0.0);
             sort(intermediateTimes.begin(), intermediateTimes.end());
-            
-//            for (int i=1; i<intermediateStates.size(); i++)
-//                std::cout << intermediateStates[i-1] << " -> " << intermediateStates[i] << " " << intermediateTimes[i] << std::endl;
-            
+                        
             h->clearHistory();
             for (int i=1; i<intermediateStates.size(); i++)
                 {
@@ -662,6 +771,7 @@ int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
                     
             }
         }
+    
     return numChanges;
 }
 
