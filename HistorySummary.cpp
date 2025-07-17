@@ -5,63 +5,64 @@
 
 
 
-HistorySummary::HistorySummary(int ns) {
+HistorySummary::HistorySummary(int ns, int ti) {
 
     numStates = ns;
+    timeInterval = ti;
     numSamples = 0;
-    transitionCount = new IntMatrix(numStates, numStates);
 }
 
 HistorySummary::~HistorySummary(void) {
 
-    delete transitionCount;
+    for (int i=0; i<transitionCount.size(); i++)
+        delete transitionCount[i];
 }
 
-void HistorySummary::addSample(Tree& t) {
+void HistorySummary::addSample(int** counts) {
 
-    numSamples++;
-    
-    int n = 0;
-    std::vector<Node*>& dpSeq = t.getDownPassSequence();
-    for (Node* p : dpSeq)
-        {
-        if (p != t.getRoot())
-            {
-            History* h = p->getHistory();
-            std::set<Change*>& branchChanges = h->getChanges();
-            for (Change* c : branchChanges)
-                {
-                (*transitionCount)(c->begState, c->endState)++;
-                n++;
-                }
-            }
-        }
-    
-    numChanges.push_back(n);
-}
-
-void HistorySummary::summary(void) {
-
-    int n = 0;
-    for (int x : numChanges)
-        n += x;
-
-    std::cout << "Number of samples = " << numSamples << std::endl;
-    std::cout << "Average number of changes = " << (double)n / numSamples << std::endl;
-    
-    std::multimap<double, std::pair<int,int>> chgs;
+    IntMatrix* cnt = new IntMatrix(numStates, numStates);
     for (int i=0; i<numStates; i++)
         {
         for (int j=0; j<numStates; j++)
             {
-            if (i != j)
-                {
-                double key = (double)(*transitionCount)(i,j) / numSamples;
-                chgs.insert( std::make_pair(key, std::make_pair(i,j)) );
-                }
+            (*cnt)(i,j) = counts[i][j];
             }
         }
+    transitionCount.push_back(cnt);
+}
+
+void HistorySummary::summary(void) {
         
-    for (std::multimap<double, std::pair<int,int>>::reverse_iterator it = chgs.rbegin(); it != chgs.rend(); it++)
-        std::cout << it->second.first << " -> " << it->second.second << " -- " << it->first << std::endl;
+    // calculate averages for number of changes
+    int ugundaId = 106;
+    double aveInto = 0.0;
+    double aveOutof = 0.0;
+    double aveNumChanges = 0.0;
+    
+    for (int n=0; n<transitionCount.size(); n++)
+        {
+        int numIntoUgunda = 0;
+        int numOutofUgunda = 0;
+        int nc = 0;
+        for (int i=0; i<numStates; i++)
+            {
+            if (i != ugundaId)
+                {
+                numIntoUgunda += (*transitionCount[n])(i,ugundaId);
+                numOutofUgunda += (*transitionCount[n])(ugundaId,i);
+                }
+            for (int j=0; j<numStates; j++)
+                {
+                if (i != j)
+                    nc += (*transitionCount[n])(i,j);
+                }
+            }
+        aveInto += numIntoUgunda;
+        aveOutof += numOutofUgunda;
+        aveNumChanges += nc;
+        }
+    
+    std::cout << "   Average number number changes = " << aveNumChanges / transitionCount.size() << std::endl;
+    std::cout << "   Average number into Ugunda    = " << aveInto / transitionCount.size() << std::endl;
+    std::cout << "   Average number out of Ugunda  = " << aveOutof / transitionCount.size() << std::endl;
 }

@@ -8,7 +8,7 @@ History::~History(void) {
         delete changesPool[i];
 }
 
-void History::addChange(int a, int b, double t) {
+Change* History::addChange(int a, int b, double t, int iid) {
 
     numChanges++;
     if (changesPool.size() < numChanges)
@@ -22,7 +22,9 @@ void History::addChange(int a, int b, double t) {
     chg->begState = a;
     chg->endState = b;
     chg->time = t;
+    chg->intervalId = iid;
     changes.insert(chg);
+    return chg;
 }
 
 void History::clearHistory(void) {

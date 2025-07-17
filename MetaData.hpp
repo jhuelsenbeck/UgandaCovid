@@ -18,7 +18,7 @@ struct CollectionDate {
 typedef std::map<std::string,std::vector<std::string>> name_map;
 typedef std::map<std::string,int> area_map;
 typedef std::map<std::string,CollectionDate> time_map;
-
+typedef std::map<std::pair<int,int>,int> interval_map;
 
 
 class MetaData {
@@ -33,6 +33,8 @@ class MetaData {
         std::vector<std::string>    getAreas(void);
         area_map&                   getAreaMap(void) { return areas; }
         time_map&                   getCollectionDates(void) { return collectionDates; }
+        int                         getIntervalId(double t);
+        interval_map&               getIntervalMap(void) { return intervalInfo; }
         int                         getNumAreas(void) { return (int)areas.size(); }
         CollectionDate              getRootDate(void) { return rootDate; }
         void                        print(void);
@@ -40,6 +42,7 @@ class MetaData {
     private:
         std::string                 extractAreaInfo(std::vector<std::string>& vec);
         CollectionDate              extractDateInfo(std::string str);
+        void                        incrementIntervalTimes(Node* p, std::vector<double>& intervalDurations);
         double                      iterateBranchTimes(Tree* t);
         double                      iterateBranchTimesUp(Tree* t);
         double                      pickBestTime(Node* p, std::set<Node*>& pDesc);
@@ -50,6 +53,7 @@ class MetaData {
         name_map                    values;
         area_map                    areas;
         time_map                    collectionDates;
+        interval_map                intervalInfo;
         CollectionDate              earliestDate;
         CollectionDate              rootDate;
 };

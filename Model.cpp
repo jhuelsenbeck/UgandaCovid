@@ -22,7 +22,7 @@
 
 
 
-Model::Model(Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr) {
+Model::Model(Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr) : metaData(md) {
 
     // initialize the rate matrix
     RateMatrix* Q = new RateMatrix(md->getAreas());
@@ -43,6 +43,12 @@ Model::Model(Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr) {
     
     // set up the conditional likelihoods (must be done after tiMngr is instantiated
     initializeConditionalLikelihoods();
+    
+    // precalculate factorials
+    nFactorial[0] = 1.0;
+    nFactorial[1] = 1.0;
+    for (int i=2; i<MAX_NUM_CHANGES; i++)
+        nFactorial[i] = nFactorial[i-1] * i;
 }
 
 Model::~Model(void) {
@@ -56,6 +62,14 @@ Model::~Model(void) {
     delete [] condLikes;
     for (int i=0; i<matrixPowers.size(); i++)
         delete matrixPowers[i];
+    delete [] intervalDwellTimes[0];
+    delete [] intervalDwellTimes;
+    for (int n=0; n<numIntervals; n++)
+        {
+        delete [] intervalTransitions[n][0];
+        delete [] intervalTransitions[n];
+        }
+    delete [] intervalTransitions;
 }
 
 void Model::accept(void) {
@@ -231,6 +245,28 @@ void Model::initializeHistories(void) {
         History* h = new History;
         (*p)->setHistory(h);
         }
+    
+    interval_map& intervalInfo = metaData->getIntervalMap();
+    numIntervals = (int)intervalInfo.size();
+    intervalDwellTimes = new double*[numIntervals];
+    intervalDwellTimes[0] = new double[numIntervals * numStates];
+    for (int i=1; i<numIntervals; i++)
+        intervalDwellTimes[i] = intervalDwellTimes[i-1] + numStates;
+    for (int i=0; i<numIntervals; i++)
+        for (int j=0; j<numStates; j++)
+            intervalDwellTimes[i][j] = 0.0;
+    
+    intervalTransitions = new int**[numIntervals];
+    for (int n=0; n<numIntervals; n++)
+        {
+        intervalTransitions[n] = new int*[numStates];
+        intervalTransitions[n][0] = new int[numStates * numStates];
+        for (int i=1; i<numStates; i++)
+            intervalTransitions[n][i] = intervalTransitions[n][i-1] + numStates;
+        for (int i=0; i<numStates; i++)
+            for (int j=0; j<numStates; j++)
+                intervalTransitions[n][i][j] = 0;
+        }
 }
 
 void Model::initializeMatrixPowers(int num) {
@@ -292,7 +328,7 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
             sampleR[i] /= sum;
         }
     
-    // set up subsitution rate
+    // set colonization rate
     if (foundStartingValues == true)
         substitutionRate[0] = sampleRate;
     else
@@ -306,6 +342,7 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
         pi[0] = samplePi;
     else
         std::fill(pi[0].begin(), pi[0].end(), 1.0/numStates);
+    Probability::Helper::normalize(pi[0], 0.001);
     pi[1] = pi[0];
     
     // set up substitution rate
@@ -319,10 +356,9 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
         sum += r[0][i];
     for (int i=0; i<r[0].size(); i++)
         r[0][i] /= sum;
+    Probability::Helper::normalize(r[0], 0.00001);
     r[1] = r[0];
     
-    // set colonization rate
-
     // set up the rate matrix and tree
     tree = tp;
     activeRateMatrix = 0;
@@ -653,7 +689,7 @@ int Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
                                 sum += (*rateMatrix)(curState, j);
                                 if (u < sum)
                                     {
-                                    h->addChange(curState, j, pt);
+                                    h->addChange(curState, j, pt, 0); // note that you should figure out interval information
                                     curState = j;
                                     break;
                                     }
@@ -680,57 +716,84 @@ int Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
 
 int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
 
-    double nFactorial[20];
-    nFactorial[0] = 1.0;
-    nFactorial[1] = 1.0;
-    for (int i=2; i<20; i++)
-        nFactorial[i] = nFactorial[i-1] * i;
-    
+    // zero out summary information for mapping
+    for (int n=0; n<numIntervals; n++)
+        {
+        for (int i=0; i<numStates; i++)
+            intervalDwellTimes[n][i] = 0.0;
+        
+        for (int i=0; i<numStates; i++)
+            for (int j=0; j<numStates; j++)
+                intervalTransitions[n][i][j] = 0;
+        }
+
+    // subsitution rate (scales tree length)
+    double r = getSubstitutionRate();
+
+    // update the rate matrix
     updateRateMatrix();
+    
+    // uniformization
     RateMatrix* rateMatrix = q[activeRateMatrix];
     double mu = rateMatrix->uniformize(uniformizedRateMatrix);
-    tiMngr->updateTransitionProbabilities(getSubstitutionRate());
+    initializeMatrixPowers(MAX_NUM_CHANGES);
 
-    //std::cout << "R" << std::endl;
-    //std::cout << *uniformizedRateMatrix << std::endl;
-    initializeMatrixPowers(20);
-    //printMatrixPowers();
-    
-    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
+    // update the transition probabilities
+    tiMngr->updateTransitionProbabilities(r);
+
+    // variables to help with mappings
     std::vector<double> changeTimes;
     std::set<Change*> changesToRemove;
-    double r = getSubstitutionRate();
     int numChanges = 0;
-    for (int nde=0; nde<dpSeq.size(); nde++)
+    std::vector<double> probNumberEvents(MAX_NUM_CHANGES+1);
+    
+    // loop over all branches of the tree
+    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
+    for (int nde=0, numNodes=(int)dpSeq.size(); nde<numNodes; nde++)
         {
         Node* p = dpSeq[nde];
         if (p != tree->getRoot())
             {
+            // begin branch map
+            
             // get information on branch
-            TransitionProbabilities* P = p->getTransitionProbability();
-            double v = p->getBrlen() * r;
+            //TransitionProbabilities* P = p->getTransitionProbability();
+            double vExact = p->getBrlenExact();
+            double v = (double)(p->getBrlen()) * r; // v: integer branch length X rate
             if (v < MIN_BRLEN)
                 v = MIN_BRLEN;
-            
             double rate = mu * v;
+            double branchDuration = p->getTime() - p->getAncestor()->getTime();
+
+            // get information on states at ends of branch
             History* h = p->getHistory();
             int a = p->getAncestor()->getAreaId();
             int b = p->getAreaId();
             
-            // sample number of events
-            double g = (*P)(a,b) * rng->uniformRv();
-            int n = 0;
+            // calculate the probability of n events on the branch
             double sum = 0.0;
-            for (int i=0; i<20; i++)
+            for (int i=0; i<MAX_NUM_CHANGES; i++)
                 {
                 double nProb = (*matrixPowers[i])(a,b) * pow(rate,(double)i) * exp(-rate) / nFactorial[i];
                 sum += nProb;
-                if (g < sum)
+                probNumberEvents[i] = sum;
+                }
+            
+            // sample number of events
+            double g = sum * rng->uniformRv();
+            int n = 0;
+            bool foundN = false;
+            for (int i=0; i<MAX_NUM_CHANGES; i++)
+                {
+                if (g < probNumberEvents[i])
                     {
                     n = i;
+                    foundN = true;
                     break;
                     }
                 }
+            if (foundN == false)
+                Msg::error("More than "+ std::to_string(MAX_NUM_CHANGES) + " changes along the branch");
                 
             // sample the series of events
             std::vector<int> intermediateStates(n+1);
@@ -753,26 +816,175 @@ int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
                     }
                 }
 
+            // sample the times
             std::vector<double> intermediateTimes;
             for (int i=0; i<n; i++)
-                intermediateTimes.push_back(rng->uniformRv()*v);
+                intermediateTimes.push_back(rng->uniformRv()*branchDuration);
             intermediateTimes.push_back(0.0);
             sort(intermediateTimes.begin(), intermediateTimes.end());
                         
+            // sample changes
             h->clearHistory();
+            Change* curChange = h->addChange(a, a, 0.0, p->getAncestor()->getIntervalIdx());
+            curChange->anc = NULL;
             for (int i=1; i<intermediateStates.size(); i++)
                 {
                 if (intermediateStates[i-1] != intermediateStates[i])
                     {
-                    h->addChange(intermediateStates[i-1], intermediateStates[i], intermediateTimes[i]);
+                    double pos = p->getAncestor()->getTime() + intermediateTimes[i];
+                    //double pos = p->getAncestor()->getTime() + (intermediateTimes[i] / v) * branchDuration;
+                    int iid = metaData->getIntervalId(pos);
+                    //std::cout << "pos=" << pos << " at=" << p->getAncestor()->getTime() << " dt=" << p->getTime() << " iid=" << iid << std::endl;
+                    Change* newChange = h->addChange(intermediateStates[i-1], intermediateStates[i], intermediateTimes[i], iid);
+                    newChange->anc = curChange;
+                    curChange = newChange;
                     numChanges++;
+                    
+                    if (curChange->anc != NULL)
+                        {
+                        if (curChange->intervalId != curChange->anc->intervalId)
+                            {
+                            }
+                        else
+                            {
+                            intervalDwellTimes[curChange->intervalId][curChange->begState] += curChange->time - curChange->anc->time;
+                            }
+                        }
                     }
                 }
+            Change* lastChange = h->addChange(curChange->endState, curChange->endState, vExact, p->getIntervalIdx());
+            lastChange->anc = curChange;
+
+            // summarize history
+            std::set<Change*>& branchHistory = h->getChanges();
+            for (Change* ch : branchHistory)
+                {
+                if (ch->begState != ch->endState)
+                    {
+                    if (ch->begState != ch->endState)
+                        intervalTransitions[ch->intervalId][ch->begState][ch->endState]++;
                     
+                    // insert code here for dwell times
+                    incrementDwellTimes(h, p, ch);
+                    }
+                }
+            incrementDwellTimes(h, p, lastChange);
+
+            // end branch map
             }
         }
     
+    for (int j=0; j<numStates; j++)
+        {
+        std::cout << std::fixed << std::setprecision(1);
+        std::cout << j << " -- ";
+        for (int i=0; i<numIntervals; i++)
+            std::cout << std::setw(10) << intervalDwellTimes[i][j] << " ";
+        std::cout << std::endl;
+        }
+    
     return numChanges;
+}
+
+void Model::incrementDwellTimes(History* h, Node* p, Change* change) {
+  
+    Change* changeAnc = change->anc;
+    if (changeAnc == nullptr)
+        Msg::error("Null ancestor for change in incrementDwellTimes");
+    
+    double pAncTime = p->getAncestor()->getTime();
+    double changeTime = change->time + pAncTime;
+    double changeAncTime = changeAnc->time + pAncTime;
+    
+    if (change->intervalId == changeAnc->intervalId)
+        {
+        intervalDwellTimes[change->intervalId][change->begState] += change->time - changeAnc->time;
+        }
+    else if (change->intervalId == 1 && changeAnc->intervalId == 0)
+        {
+        int boundary = 0;
+        interval_map& intervalInfo = metaData->getIntervalMap();
+        for (auto [key,val] : intervalInfo)
+            {
+            if (val == 1)
+                boundary = key.first;
+            }
+        if (changeTime - boundary < 0.0 || boundary - changeAncTime < 0.0)
+            {
+            std::cout << "p->time           = " << p->getTime() << std::endl;
+            std::cout << "p->anc->time      = " << p->getAncestor()->getTime() << std::endl;
+            std::cout << "p->interval       = " << p->getIntervalIdx() << std::endl;
+            std::cout << "p->anc->interval  = " << p->getAncestor()->getIntervalIdx() << std::endl;
+            std::cout << "boundary          = " << boundary << std::endl;
+            std::cout << "change->time      = " << changeTime << std::endl;
+            std::cout << "change->anc->time = " << changeAncTime << std::endl;
+            Msg::error("Negative times in 0");
+            }
+        intervalDwellTimes[1][change->begState] += changeTime - boundary;
+        intervalDwellTimes[0][change->begState] += boundary - changeAncTime;
+        }
+    else if (change->intervalId == 0 && changeAnc->intervalId == 1)
+        {
+        Msg::error("01");
+        }
+    else if (change->intervalId == 2 && changeAnc->intervalId == 1)
+        {
+        int boundary = 0;
+        interval_map& intervalInfo = metaData->getIntervalMap();
+        for (auto [key,val] : intervalInfo)
+            {
+            if (val == 2)
+                boundary = key.first;
+            }
+        if (changeTime - boundary < 0.0 || boundary - changeAncTime < 0.0)
+            {
+            Msg::error("Negative times in 1");
+            }
+        intervalDwellTimes[2][change->begState] += changeTime - boundary;
+        intervalDwellTimes[1][change->begState] += boundary - changeAncTime;
+        }
+    else if (change->intervalId == 1 && changeAnc->intervalId == 2)
+        {
+        Msg::error("12");
+        }
+    else if (change->intervalId == 2 && changeAnc->intervalId == 0)
+        {
+        int boundary0 = 0, boundary1 = 0;
+        interval_map& intervalInfo = metaData->getIntervalMap();
+        for (auto [key,val] : intervalInfo)
+            {
+            if (val == 1)
+                boundary0 = key.first;
+            else if (val == 2)
+                boundary1 = key.first;
+            }
+        if (changeTime - boundary1 < 0.0 || boundary1 - boundary0 < 0.0 || boundary0 - changeAncTime < 0.0)
+            {
+            std::cout << "boundary0         = " << boundary0 << std::endl;
+            std::cout << "boundary1         = " << boundary1 << std::endl;
+            std::cout << "change->time      = " << changeTime << std::endl;
+            std::cout << "change->anc->time = " << changeAncTime << std::endl;
+            Msg::error("Negative times in 2");
+            }
+        intervalDwellTimes[2][change->begState] += changeTime - boundary1;
+        intervalDwellTimes[1][change->begState] += boundary1 - boundary0;
+        intervalDwellTimes[0][change->begState] += boundary0 - changeAncTime;
+        }
+    else if (change->intervalId == 0 && changeAnc->intervalId == 2)
+        {
+        Msg::error("02");
+        }
+    else
+        {
+        std::cout << "Branch: " << p->getBrlen() << " " <<  p->getAncestor()->getAreaId() << "->" << p->getAreaId() << std::endl;
+        std::cout << " Branch: " << p->getIntervalIdx() << " " << p->getAncestor()->getIntervalIdx() << std::endl;
+        std::set<Change*>& hChanges = h->getChanges();
+        for (Change* c : hChanges)
+            std::cout << c->time << " " << c->begState << "->" << c->endState << " " << c->intervalId << std::endl;
+
+        Msg::error(std::to_string(change->intervalId) + " " + std::to_string(change->anc->intervalId));
+        }
+
 }
 
 void Model::switchActiveRateMatrix(void) {
@@ -793,13 +1005,14 @@ double Model::update(void) {
         {
         lnProposalProb = updateSubstitutionRate();
         }
-    else if (u > 0.33 && u <= 0.67)
+    else if (u > 0.33 && u <= 1.0)
         {
         lnProposalProb = updatePi();
         updateRateMatrix();
         }
     else
         {
+        Msg::error("We should not be proposing changes to the exchangeability parameters");
         lnProposalProb = updateR();
         updateRateMatrix();
         }
@@ -831,16 +1044,16 @@ double Model::updateSubstitutionRate(void) {
 double Model::updatePi(void) {
 
     updateType = "equilibrium frequencies";
-    return updateSimplex(pi[0], pi[1], 5000.0, 1);
+    return updateSimplex(pi[0], pi[1], 5000.0, 1, 0.001);
 }
 
 double Model::updateR(void) {
 
     updateType = "exchangeability rates";
-    return updateSimplex(r[0], r[1], 5000.0, 1);
+    return updateSimplex(r[0], r[1], 5000.0, 1, 0.00001);
 }
 
-double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0) {
+double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal) {
 
     RandomVariable& rng = RandomVariable::getInstance();
     
@@ -849,7 +1062,7 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
         alphaForward[i] = oldVec[i] * alpha0 + 1.0;
         
     Probability::Dirichlet::rv(&rng, alphaForward, newVec);
-    Probability::Helper::normalize(newVec, 10e-7);
+    Probability::Helper::normalize(newVec, minVal);
     
     std::vector<double> alphaReverse(r[0].size());
     for (int i=0, n=(int)alphaReverse.size(); i<n; i++)
@@ -860,7 +1073,7 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
     return lnForwardProb;
 }
 
-double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, int k) {
+double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, int k, double minVal) {
 
     RandomVariable& rng = RandomVariable::getInstance();
     
@@ -894,7 +1107,7 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
         
     std::vector<double> newValues(k+1);
     Probability::Dirichlet::rv(&rng, alphaForward, newValues);
-    Probability::Helper::normalize(newVec, 10e-7);
+    Probability::Helper::normalize(newVec, minVal);
     
     std::vector<double> alphaReverse(k + 1);
     for (int i=0, n=(int)alphaReverse.size(); i<n; i++)

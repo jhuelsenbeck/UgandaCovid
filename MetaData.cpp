@@ -192,7 +192,6 @@ void MetaData::assignTimeIntervals(Tree* t, std::vector<std::string> boundaryDat
         lowerVals.insert(numDays);
         upperVals.insert(numDays);
         }
-    std::map<std::pair<int,int>,int> intervalInfo;
     for (int i=0; i<lowerVals.size(); i++)
         {
         int x = 0, y = 0;
@@ -253,6 +252,7 @@ void MetaData::assignTimeIntervals(Tree* t, std::vector<std::string> boundaryDat
 
     int numSpanningBranches = 0;
     int numNonSpanningBranches = 0;
+    std::vector<double> intervalTreeLength(intervalInfo.size(), 0.0);
     for (int i=0, n=(int)dpSeq.size(); i<n; i++)
         {
         Node* p = dpSeq[i];
@@ -262,8 +262,13 @@ void MetaData::assignTimeIntervals(Tree* t, std::vector<std::string> boundaryDat
                 numNonSpanningBranches++;
             else
                 numSpanningBranches++;
+            
+            incrementIntervalTimes(p, intervalTreeLength);
             }
         }
+    std::cout << "   * Tree length in intervals:" << std::endl;
+    for (int i=0; i<intervalTreeLength.size(); i++)
+        std::cout << "     Interval " << i << ": " << intervalTreeLength[i] << std::endl;
     std::cout << "   * Branches spanning interval:" << std::endl;
     std::cout << "     Num. Spanning:     " << numSpanningBranches << std::endl;
     std::cout << "     Num. Not Spanning: " << numNonSpanningBranches << std::endl;
@@ -417,6 +422,17 @@ std::vector<std::string> MetaData::getAreas(void) {
     return vec;
 }
 
+int MetaData::getIntervalId(double t) {
+   
+    typedef std::map<std::pair<int,int>,int> interval_map;
+    for (interval_map::iterator it = intervalInfo.begin(); it != intervalInfo.end(); it++)
+        {
+        if (t > it->first.first && t < it->first.second)
+            return it->second;
+        }
+    return -1;
+}
+
 double MetaData::pickBestTime(Node* p, std::set<Node*>& pDesc) {
     
     if (p->getAncestor() == nullptr)
@@ -474,6 +490,62 @@ double MetaData::pickBestTime(Node* p, std::set<Node*>& pDesc) {
     return bestKey;
 }
 
+void MetaData::incrementIntervalTimes(Node* p, std::vector<double>& intervalDurations) {
+    
+    if (p->getIntervalIdx() == p->getAncestor()->getIntervalIdx())
+        {
+        intervalDurations[p->getIntervalIdx()] += p->getBrlen();
+        }
+    else if (p->getIntervalIdx() == 1 && p->getAncestor()->getIntervalIdx() == 0)
+        {
+        int boundary = 0;
+        for (auto [key,val] : intervalInfo)
+            {
+            if (val == 1)
+                boundary = key.first;
+            }
+        if (p->getTime() - boundary < 0.0 || boundary - p->getAncestor()->getTime() < 0.0)
+            Msg::error("Negative times in 0");
+        intervalDurations[1] += p->getTime() - boundary;
+        intervalDurations[0] += boundary - p->getAncestor()->getTime();
+        }
+    else if (p->getIntervalIdx() == 2 && p->getAncestor()->getIntervalIdx() == 1)
+        {
+        int boundary = 0;
+        for (auto [key,val] : intervalInfo)
+            {
+            if (val == 2)
+                boundary = key.first;
+            }
+        if (p->getTime() - boundary < 0.0 || boundary - p->getAncestor()->getTime() < 0.0)
+            Msg::error("Negative times in 1");
+        intervalDurations[2] += p->getTime() - boundary;
+        intervalDurations[1] += boundary - p->getAncestor()->getTime();
+        }
+    else if (p->getIntervalIdx() == 2 && p->getAncestor()->getIntervalIdx() == 0)
+        {
+        int boundary0 = 0, boundary1 = 0;
+        for (auto [key,val] : intervalInfo)
+            {
+            if (val == 1)
+                boundary0 = key.first;
+            else if (val == 2)
+                boundary1 = key.first;
+            }
+        if (p->getTime() - boundary1 < 0.0 || boundary1 - boundary0 < 0.0 || boundary0 - p->getAncestor()->getTime() < 0.0)
+            {
+            std::cout << boundary0 << " " << boundary1 << std::endl;
+            Msg::error("Negative times in 2");
+            }
+        intervalDurations[2] += p->getTime() - boundary1;
+        intervalDurations[1] += boundary1 - boundary0;
+        intervalDurations[0] += boundary0 - p->getAncestor()->getTime();
+        }
+    else
+        Msg::error(std::to_string(p->getIntervalIdx()) + " " + std::to_string(p->getAncestor()->getIntervalIdx()) );
+
+}
+
 double MetaData::iterateBranchTimes(Tree* t) {
 
     int nLowerHits = 0, nUpperHits = 0;
@@ -527,14 +599,14 @@ void MetaData::print(void) {
     for (area_map::iterator it = areas.begin(); it != areas.end(); it++)
         std::cout << "     " << std::setw(4) << it->second << ": " << it->first << std::endl;
 
-    std::cout << "   * Name map:" << std::endl;
-    for (name_map::iterator it = values.begin(); it != values.end(); it++)
-        {
-        std::cout << "     " << std::setw(4) << it->first << ": ";
-//        for (int i=0; i<it->second.size(); it++)
-//            std::cout << it->second[i] << " ";
-        std::cout << std::endl;
-        }
+//    std::cout << "   * Name map:" << std::endl;
+//    for (name_map::iterator it = values.begin(); it != values.end(); it++)
+//        {
+//        std::cout << "     " << std::setw(4) << it->first << ": ";
+////        for (int i=0; i<it->second.size(); it++)
+////            std::cout << it->second[i] << " ";
+//        std::cout << std::endl;
+//        }
 }
 
 void MetaData::removeMissingAreas(Tree* t) {
@@ -601,7 +673,7 @@ void MetaData::removeMissingAreas(Tree* t) {
     if (numToRemove > 0)
         std::cout << "     Number of areas = " << areas.size() << std::endl;
     
-    //print();
+    print();
 }
 
 double MetaData::sumSquares(Tree* t) {

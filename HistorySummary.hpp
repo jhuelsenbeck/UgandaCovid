@@ -10,17 +10,19 @@ class Tree;
 class HistorySummary {
 
     public:
-                            HistorySummary(void) = delete;
-                            HistorySummary(int ns);
-                           ~HistorySummary(void);
-        void                addSample(Tree& t);
-        void                summary(void);
+                                HistorySummary(void) = delete;
+                                HistorySummary(int ns, int ti);
+                               ~HistorySummary(void);
+        void                    addSample(int** counts);
+        void                    summary(void);
     
     private:
-        int                 numSamples;
-        int                 numStates;
-        std::vector<int>    numChanges;
-        IntMatrix*          transitionCount;
+        int                     numSamples;
+        int                     numStates;
+        int                     timeInterval;
+        std::vector<int>        numChanges;
+        std::vector<double>     treeLength;
+        std::vector<IntMatrix*> transitionCount;
 };
 
 #endif

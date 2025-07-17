@@ -6,6 +6,8 @@ struct Change {
     int begState;
     int endState;
     double time;
+    int intervalId;
+    Change* anc;
 };
 
 #include <set>
@@ -17,7 +19,7 @@ class History {
 
     public:
                                ~History(void);
-        void                    addChange(int a, int b, double t);
+        Change*                 addChange(int a, int b, double t, int iid);
         void                    clearHistory(void);
         std::set<Change*>&      getChanges(void) { return changes; }
         int                     getNumChanges(void) { return numChanges; }

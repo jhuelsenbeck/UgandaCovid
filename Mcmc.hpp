@@ -2,6 +2,7 @@
 #define Mcmc_hpp
 
 #include <fstream>
+class HistorySummary;
 class Model;
 class RandomVariable;
 
@@ -18,6 +19,7 @@ class Mcmc {
         void            closeOutputFiles(void);
         void            openOutputFiles(void);
         void            print(int n, double lnL);
+        void            summarizeHistory(std::vector<HistorySummary*>& summary);
         RandomVariable* rng;
         Model*          model;
         int             chainLength;

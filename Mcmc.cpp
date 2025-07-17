@@ -1,12 +1,15 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include "History.hpp"
 #include "HistorySummary.hpp"
 #include "Mcmc.hpp"
 #include "Model.hpp"
 #include "McmcInfo.hpp"
 #include "Msg.hpp"
+#include "Node.hpp"
 #include "RandomVariable.hpp"
+#include "Tree.hpp"
 
 
 
@@ -47,7 +50,9 @@ void Mcmc::run(void) {
     std::cout << "     Initializing likelihood and prior values" << std::endl;
     
     McmcInfo info;
-    HistorySummary summary(model->getNumStates());
+    std::vector<HistorySummary*> summary;
+    for (int i=0; i<model->getNumIntervals(); i++)
+        summary.push_back( new HistorySummary(model->getNumStates(), i) );
     for (int n=1; n<=chainLength; n++)
         {
         // propose a new state
@@ -99,7 +104,8 @@ void Mcmc::run(void) {
         if (n % mappingFrequency == 0 && n > burnIn)
             {
             model->map();
-            summary.addSample(*model->getTree());
+            summarizeHistory(summary);
+            //summary.addSample(*model->getTree());
             }
         }
         
@@ -110,7 +116,8 @@ void Mcmc::run(void) {
     info.print();
     
     // print transition summary
-    summary.summary();
+    for (int i=0; i<summary.size(); i++)
+        summary[i]->summary();
 }
 
 void Mcmc::print(int n, double lnL) {
@@ -142,4 +149,16 @@ void Mcmc::print(int n, double lnL) {
     for (int i=0, m=(int)r.size(); i<m; i++)
         parmStrm << r[i] << '\t';
     parmStrm << std::endl;
+}
+
+void Mcmc::summarizeHistory(std::vector<HistorySummary*>& summary) {
+    
+    int numIntervals = model->getNumIntervals();
+    int*** sampleIntervalInfo = model->getIntervalTransitions();
+    for (int n=0; n<numIntervals; n++)
+        {
+        summary[n]->addSample(sampleIntervalInfo[n]);
+        std::cout << "   Interval " << n << ":" << std::endl;
+        summary[n]->summary();
+        }
 }

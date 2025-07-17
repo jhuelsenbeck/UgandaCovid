@@ -6,8 +6,11 @@
 #include <string>
 #include <vector>
 #include "Threads.hpp"
+class Change;
 class CondLikeJobMngr;
+class History;
 class MetaData;
+class Node;
 class RandomVariable;
 class RateMatrix;
 class Samples;
@@ -15,6 +18,7 @@ class ThreadPool;
 class TransitionProbabilitiesMngr;
 class Tree;
 
+#define MAX_NUM_CHANGES     10
 
 class Model {
 
@@ -23,6 +27,8 @@ class Model {
                                         Model(Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr);
                                        ~Model(void);
         void                            accept(void);
+        int***                          getIntervalTransitions(void) { return intervalTransitions; }
+        int                             getNumIntervals(void) { return numIntervals; }
         int                             getNumStates(void) { return (int)numStates; }
         std::vector<double>&            getPi(void) { return pi[1]; }
         std::vector<double>&            getR(void) { return r[1]; }
@@ -41,6 +47,7 @@ class Model {
         void                            assignNodeStates(RandomVariable* rng);
         void                            checkConditionalLikelihoods(void);
         void                            deleteHistories(void);
+        void                            incrementDwellTimes(History* h, Node* p, Change* change);
         void                            initializeConditionalLikelihoods(void);
         void                            initializeHistories(void);
         void                            initializeMatrixPowers(int num);
@@ -54,10 +61,11 @@ class Model {
         double                          updatePi(void);
         double                          updateR(void);
         void                            updateRateMatrix(void);
-        double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0);
-        double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, int k);
+        double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal);
+        double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, int k, double minVal);
         CondLikeJobMngr*                clManager;
         Tree*                           tree;
+        MetaData*                       metaData;
         int                             activeRateMatrix;
         RateMatrix*                     q[2];
         RateMatrix*                     uniformizedRateMatrix;
@@ -70,6 +78,10 @@ class Model {
         std::vector<double>             r[2];
         size_t                          numStates;
         std::string                     updateType;
+        int                             numIntervals;
+        double**                        intervalDwellTimes;
+        int***                          intervalTransitions;
+        double                          nFactorial[MAX_NUM_CHANGES];
 };
 
 
