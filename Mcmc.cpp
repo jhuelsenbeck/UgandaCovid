@@ -77,7 +77,13 @@ void Mcmc::run(void) {
               
         // print (part 2)
         if (n % printFrequency == 0)
-            std::cout << ((accept == true) ? "Accepted " : "Rejected ") << "update of " << updateType << std::endl;
+            {
+            std::cout << ((accept == true) ? "Accepted " : "Rejected ") << "update of " << updateType;
+            std::cout << std::scientific;
+            std::cout << " " << model->getSubstitutionRate();
+            std::cout << std::fixed;
+            std::cout << std::endl;
+            }
         
         // adjust the state accordingly
          if (accept == true)

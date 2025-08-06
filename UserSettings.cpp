@@ -15,7 +15,7 @@ UserSettings::UserSettings(void) {
     initParmsFile    = "";
     burnIn           = 0;
     chainLength      = 100;
-    printFrequency   = 2;
+    printFrequency   = 1;
     sampleFrequency  = 5;
     mappingFrequency = 2;
     numThreads       = 0;

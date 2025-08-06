@@ -34,22 +34,22 @@ void HistorySummary::addSample(int** counts) {
 void HistorySummary::summary(void) {
         
     // calculate averages for number of changes
-    int ugundaId = 106;
+    int ugandaId = 106;
     double aveInto = 0.0;
     double aveOutof = 0.0;
     double aveNumChanges = 0.0;
     
     for (int n=0; n<transitionCount.size(); n++)
         {
-        int numIntoUgunda = 0;
-        int numOutofUgunda = 0;
+        int numIntoUganda = 0;
+        int numOutofUganda = 0;
         int nc = 0;
         for (int i=0; i<numStates; i++)
             {
-            if (i != ugundaId)
+            if (i != ugandaId)
                 {
-                numIntoUgunda += (*transitionCount[n])(i,ugundaId);
-                numOutofUgunda += (*transitionCount[n])(ugundaId,i);
+                numIntoUganda += (*transitionCount[n])(i,ugandaId);
+                numOutofUganda += (*transitionCount[n])(ugandaId,i);
                 }
             for (int j=0; j<numStates; j++)
                 {
@@ -57,12 +57,19 @@ void HistorySummary::summary(void) {
                     nc += (*transitionCount[n])(i,j);
                 }
             }
-        aveInto += numIntoUgunda;
-        aveOutof += numOutofUgunda;
+        aveInto += numIntoUganda;
+        aveOutof += numOutofUganda;
         aveNumChanges += nc;
+
+        if (n == transitionCount.size() - 1)
+            {
+            std::cout << "   Number changes = " << nc << std::endl;
+            std::cout << "   Number into Uganda = " << numIntoUganda << std::endl;
+            std::cout << "   Number out of Uganda = " << numOutofUganda << std::endl;
+            }
         }
-    
-    std::cout << "   Average number number changes = " << aveNumChanges / transitionCount.size() << std::endl;
-    std::cout << "   Average number into Ugunda    = " << aveInto / transitionCount.size() << std::endl;
-    std::cout << "   Average number out of Ugunda  = " << aveOutof / transitionCount.size() << std::endl;
+
+    std::cout << "   Average number changes = " << aveNumChanges / transitionCount.size() << std::endl;
+    std::cout << "   Average number into Uganda    = " << aveInto / transitionCount.size() << std::endl;
+    std::cout << "   Average number out of Uganda  = " << aveOutof / transitionCount.size() << std::endl;
 }

@@ -332,7 +332,7 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
     if (foundStartingValues == true)
         substitutionRate[0] = sampleRate;
     else
-        substitutionRate[0] = 0.01;
+        substitutionRate[0] = 0.0001;
     substitutionRate[1] = substitutionRate[0];
     
     // set up stationary frequencies
