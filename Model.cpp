@@ -1034,7 +1034,7 @@ double Model::updateSubstitutionRate(void) {
     updateType = "colonization rate";
     RandomVariable& rng = RandomVariable::getInstance();
     double oldValue = substitutionRate[0];
-    double tuning = 0.02;
+    double tuning = 0.01;
     double factor = exp((rng.uniformRv()-0.5)*tuning);
     double newValue = oldValue * factor;
     substitutionRate[1] = newValue;
@@ -1044,7 +1044,7 @@ double Model::updateSubstitutionRate(void) {
 double Model::updatePi(void) {
 
     updateType = "equilibrium frequencies";
-    return updateSimplex(pi[0], pi[1], 5000.0, 1, 0.001);
+    return updateSimplex(pi[0], pi[1], 10000.0, 1, 0.001);
 }
 
 double Model::updateR(void) {
