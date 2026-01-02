@@ -4,11 +4,41 @@
 #include <mutex>
 #include <vector>
 #include "Threads.hpp"
+
+// -------------------------------------------------------------------
+// Platform detection for BLAS and vectorized math
+// -------------------------------------------------------------------
+#if defined(__APPLE__)
+    #define CONDLIKE_USE_ACCELERATE 1
+    #ifndef ACCELERATE_NEW_LAPACK
+    #define ACCELERATE_NEW_LAPACK
+    #endif
+    #include <Accelerate/Accelerate.h>
+#elif defined(USE_OPENBLAS) || defined(USE_CBLAS)
+    #define CONDLIKE_USE_CBLAS 1
+    extern "C" {
+        #include <cblas.h>
+    }
+#endif
+
 class CondLikeJobMngr;
 class Node;
 class Tree;
 
 
+
+// -------------------------------------------------------------------
+// CondLikeJob
+// -------------------------------------------------------------------
+// Computes conditional likelihoods for a set of nodes in the tree.
+// This is the core computation in phylogenetic likelihood calculation.
+//
+// Key optimizations:
+// - BLAS dgemv for matrix-vector multiply (P * CL)
+// - Vectorized log via vvlog (Accelerate) or manual SIMD
+// - Pre-allocated working buffers
+// - Minimized memory passes
+// -------------------------------------------------------------------
 
 class CondLikeJob : public ThreadTask {
 
@@ -32,8 +62,15 @@ class CondLikeJob : public ThreadTask {
     
     private:
         void                        conditionalLikelihood(void);
-        double*                     clSum;
+        void                        conditionalLikelihoodOptimized(void);
+        void                        conditionalLikelihoodPortable(void);
+        
+        // Working buffers (pre-allocated, reused)
+        double*                     clSum;          // accumulated log-likelihoods
         double*                     clSumEnd;
+        double*                     tempResult;     // result of P * CL (for BLAS)
+        
+        // Job management
         CondLikeJobMngr*            myManager;
         ThreadPool*                 threadPool;
         std::mutex                  mtx;
