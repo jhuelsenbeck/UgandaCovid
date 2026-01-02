@@ -44,9 +44,9 @@ class CondLikeJob : public ThreadTask {
 
     public:
                                     CondLikeJob(void) = delete;
-                                    CondLikeJob(CondLikeJobMngr* m, ThreadPool* tp, int na);
+                                    CondLikeJob(ThreadPool* tp, int na);
                                    ~CondLikeJob(void);
-        void                        addDependency(CondLikeJob* j) { numDependencies++; }
+        void                        addDependency(CondLikeJob* ) { numDependencies++; }
         void                        addNode(Node* p) { nodes.push_back(p); }
         int                         getJobId(void) { return jobId; }
         std::vector<Node*>&         getJobNodes(void) { return nodes; }
@@ -65,13 +65,12 @@ class CondLikeJob : public ThreadTask {
         void                        conditionalLikelihoodOptimized(void);
         void                        conditionalLikelihoodPortable(void);
         
-        // Working buffers (pre-allocated, reused)
+                                    // working buffers (pre-allocated, reused)
         double*                     clSum;          // accumulated log-likelihoods
         double*                     clSumEnd;
         double*                     tempResult;     // result of P * CL (for BLAS)
         
         // Job management
-        CondLikeJobMngr*            myManager;
         ThreadPool*                 threadPool;
         std::mutex                  mtx;
         double                      lnScaler;

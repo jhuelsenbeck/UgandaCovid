@@ -24,7 +24,7 @@
 
 
 Model::Model(RandomVariable* r, Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr) : 
-    rng(r), metaData(md), threadPool(thp), clManager(mngr) {
+    clManager(mngr), metaData(md), rng(r), threadPool(thp) {
 
     // initialize the rate matrix
     RateMatrix* Q = new RateMatrix(md->getAreas());
@@ -60,7 +60,7 @@ Model::~Model(void) {
     delete uniformizedRateMatrix;
     delete tiMngr;
     delete [] condLikes;
-    for (int i=0; i<matrixPowers.size(); i++)
+    for (size_t i=0; i<matrixPowers.size(); i++)
         delete matrixPowers[i];
     delete [] intervalDwellTimes[0];
     delete [] intervalDwellTimes;
@@ -207,7 +207,7 @@ void Model::initializeConditionalLikelihoods(void) {
                 }
             else
                 {
-                for (int i=0; i<numStates; i++)
+                for (size_t i=0; i<numStates; i++)
                     m[i] = 1.0;
                 }
             }
@@ -253,7 +253,7 @@ void Model::initializeHistories(void) {
     for (int i=1; i<numIntervals; i++)
         intervalDwellTimes[i] = intervalDwellTimes[i-1] + numStates;
     for (int i=0; i<numIntervals; i++)
-        for (int j=0; j<numStates; j++)
+        for (size_t j=0; j<numStates; j++)
             intervalDwellTimes[i][j] = 0.0;
     
     intervalTransitions = new int**[numIntervals];
@@ -261,15 +261,15 @@ void Model::initializeHistories(void) {
         {
         intervalTransitions[n] = new int*[numStates];
         intervalTransitions[n][0] = new int[numStates * numStates];
-        for (int i=1; i<numStates; i++)
+        for (size_t i=1; i<numStates; i++)
             intervalTransitions[n][i] = intervalTransitions[n][i-1] + numStates;
-        for (int i=0; i<numStates; i++)
-            for (int j=0; j<numStates; j++)
+        for (size_t i=0; i<numStates; i++)
+            for (size_t j=0; j<numStates; j++)
                 intervalTransitions[n][i][j] = 0;
         }
 }
 
-void Model::initializeMatrixPowers(int num) {
+void Model::initializeMatrixPowers(size_t num) {
 
     if (num < 2)
         num = 2;
@@ -316,15 +316,15 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
             foundStartingValues = false;
 
         double sum = 0.0;
-        for (int i=0; i<samplePi.size(); i++)
+        for (size_t i=0; i<samplePi.size(); i++)
             sum += samplePi[i];
-        for (int i=0; i<samplePi.size(); i++)
+        for (size_t i=0; i<samplePi.size(); i++)
             samplePi[i] /= sum;
         
         sum = 0.0;
-        for (int i=0; i<sampleR.size(); i++)
+        for (size_t i=0; i<sampleR.size(); i++)
             sum += sampleR[i];
-        for (int i=0; i<sampleR.size(); i++)
+        for (size_t i=0; i<sampleR.size(); i++)
             sampleR[i] /= sum;
         }
     
@@ -352,9 +352,9 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
     else
         std::fill(r[0].begin(), r[0].end(), 1.0);
     double sum = 0.0;
-    for (int i=0; i<r[0].size(); i++)
+    for (size_t i=0; i<r[0].size(); i++)
         sum += r[0][i];
-    for (int i=0; i<r[0].size(); i++)
+    for (size_t i=0; i<r[0].size(); i++)
         r[0][i] /= sum;
     Probability::Helper::normalize(r[0], 0.00001);
     r[1] = r[0];
@@ -372,7 +372,7 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
     
     // set up the transition probabilities
     tiMngr = new TransitionProbabilitiesMngr(this, tree, numStates, threadPool);
-    tiMngr->updateTransitionProbabilities(substitutionRate[0]);
+    tiMngr->updateTransitionProbabilities();
 }
 
 #if 1
@@ -392,7 +392,7 @@ double Model::lnLikelihood(void) {
     double* cl = r->getConditionalLikelihood();
     double* f = &pi[1][0];
     double like = 0.0;
-    for (int i=0; i<numStates; i++)
+    for (size_t i=0; i<numStates; i++)
         {
         like += (*f) * (*cl);
         cl++;
@@ -520,7 +520,7 @@ void Model::map(void) {
 
 void Model::printMatrixPowers(void) {
 
-    for (int i=0; i<matrixPowers.size(); i++)
+    for (size_t i=0; i<matrixPowers.size(); i++)
         {
         std::cout << "M^{" << i << "}" << std::endl;
         std::cout << (*matrixPowers[i]) << std::endl;
@@ -588,7 +588,7 @@ int Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
     int numChanges = 0;
     RateMatrix* rateMatrix = q[activeRateMatrix];
     std::vector<Node*>& dpSeq = tree->getDownPassSequence();
-    for (int n=0; n<dpSeq.size(); n++)
+    for (size_t n=0; n<dpSeq.size(); n++)
         {
         Node* p = dpSeq[n];
         if (p != tree->getRoot())
@@ -621,7 +621,7 @@ int Model::sampleHistoriesUsingRejectionSamplign(RandomVariable* rng) {
                         {
                         double u = rng->uniformRv() * rate;
                         double sum = 0.0;
-                        for (int j=0; j<numStates; j++)
+                        for (int j=0; j<(int)numStates; j++)
                             {
                             if (j != curState)
                                 {
@@ -658,11 +658,11 @@ int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
     // zero out summary information for mapping
     for (int n=0; n<numIntervals; n++)
         {
-        for (int i=0; i<numStates; i++)
+        for (size_t i=0; i<numStates; i++)
             intervalDwellTimes[n][i] = 0.0;
         
-        for (int i=0; i<numStates; i++)
-            for (int j=0; j<numStates; j++)
+        for (size_t i=0; i<numStates; i++)
+            for (size_t j=0; j<numStates; j++)
                 intervalTransitions[n][i][j] = 0;
         }
 
@@ -678,7 +678,7 @@ int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
     initializeMatrixPowers(MAX_NUM_CHANGES);
 
     // update the transition probabilities
-    tiMngr->updateTransitionProbabilities(r);
+    tiMngr->updateTransitionProbabilities();
 
     // variables to help with mappings
     std::vector<double> changeTimes;
@@ -735,16 +735,16 @@ int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
                 Msg::error("More than "+ std::to_string(MAX_NUM_CHANGES) + " changes along the branch");
                 
             // sample the series of events
-            std::vector<int> intermediateStates(n+1);
+            std::vector<size_t> intermediateStates(n+1);
             intermediateStates[0] = a;
-            for (int i=1; i<intermediateStates.size(); i++)
+            for (size_t i=1; i<intermediateStates.size(); i++)
                 {
                 double sum = 0.0;
-                for (int j=0; j<numStates; j++)
+                for (size_t j=0; j<numStates; j++)
                     sum += (*matrixPowers[1])(intermediateStates[i-1],j) * (*matrixPowers[n-i])(j,b);
                 double u = rng->uniformRv() * sum;
                 sum = 0.0;
-                for (int j=0; j<numStates; j++)
+                for (size_t j=0; j<numStates; j++)
                     {
                     sum += (*matrixPowers[1])(intermediateStates[i-1],j) * (*matrixPowers[n-i])(j,b);
                     if (u < sum)
@@ -766,7 +766,7 @@ int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
             h->clearHistory();
             Change* curChange = h->addChange(a, a, 0.0, p->getAncestor()->getIntervalIdx());
             curChange->anc = NULL;
-            for (int i=1; i<intermediateStates.size(); i++)
+            for (size_t i=1; i<intermediateStates.size(); i++)
                 {
                 if (intermediateStates[i-1] != intermediateStates[i])
                     {
@@ -813,7 +813,7 @@ int Model::sampleHistoriesUsingUniformization(RandomVariable* rng) {
             }
         }
     
-    for (int j=0; j<numStates; j++)
+    for (size_t j=0; j<numStates; j++)
         {
         std::cout << std::fixed << std::setprecision(1);
         std::cout << j << " -- ";
@@ -956,7 +956,7 @@ double Model::update(void) {
         }
         
     // update the transition probabilities
-    tiMngr->updateTransitionProbabilities(substitutionRate[1]);
+    tiMngr->updateTransitionProbabilities();
         
     return lnProposalProb;
 }
@@ -1008,17 +1008,17 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
     return lnForwardProb;
 }
 
-double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, int k, double minVal) {
+double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, size_t k, double minVal) {
     
     // choose which elements to update
-    int n = (int)oldVec.size();
+    size_t n = oldVec.size();
     if (n == k)
         Msg::error("Cannot update that many simplex variables!!!");
         
-    std::set<int> indices;
+    std::set<size_t> indices;
     while (indices.size() < k)
         {
-        int idx = (int)(rng->uniformRv() * n);
+        size_t idx = (size_t)(rng->uniformRv() * n);
         indices.insert(idx);
         }
     
@@ -1026,7 +1026,7 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
     std::vector<double> oldValues(k+1);
     double sum = 0.0;
     int i = 0;
-    for (int idx : indices)
+    for (size_t idx : indices)
         {
         double x = oldVec[idx];
         oldValues[i++] = x;

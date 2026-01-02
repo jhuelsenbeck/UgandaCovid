@@ -14,8 +14,8 @@
 
 
 Mcmc::Mcmc(RandomVariable* r, int cl, int bi, int pf, int sf, int mf, std::string s, Model* m) :
-    rng(r), chainLength(cl), burnIn(bi), printFrequency(pf), sampleFrequency(sf), mappingFrequency(mf), 
-    parmOutFile(s), model(m) {
+    rng(r), model(m), chainLength(cl), burnIn(bi), printFrequency(pf), sampleFrequency(sf), mappingFrequency(mf), 
+    parmOutFile(s) {
 
 }
 
@@ -46,7 +46,7 @@ void Mcmc::run(void) {
     McmcInfo info;
     std::vector<HistorySummary*> summary;
     for (int i=0; i<model->getNumIntervals(); i++)
-        summary.push_back( new HistorySummary(model->getNumStates(), i) );
+        summary.push_back( new HistorySummary(model->getNumStates()) );
     for (int n=1; n<=chainLength; n++)
         {
         // propose a new state
@@ -116,7 +116,7 @@ void Mcmc::run(void) {
     info.print();
     
     // print transition summary
-    for (int i=0; i<summary.size(); i++)
+    for (size_t i=0; i<summary.size(); i++)
         summary[i]->summary();
 }
 

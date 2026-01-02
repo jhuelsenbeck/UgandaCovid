@@ -42,7 +42,7 @@ void McmcInfo::print(void) {
         for (int i=0; i<longestStr-n; i++)
             std::cout << " ";
         std::cout << "Accepted ";
-        std::cout << std::fixed << std::setprecision(2) << x * 100.0 << "\% of the time" << std::endl;
+        std::cout << std::fixed << std::setprecision(2) << x * 100.0 << "% of the time" << std::endl;
         }
 }
 

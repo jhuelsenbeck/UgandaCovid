@@ -10,8 +10,8 @@ class Tree;
 
 struct CollectionDate {
 
-    unsigned day;
-    unsigned month;
+    int day;
+    int month;
     int year;
 };
 

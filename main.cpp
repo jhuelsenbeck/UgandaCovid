@@ -112,11 +112,11 @@ bool checkAreas(MetaData& meta, Tree* t) {
             }
         }
     
-    int longestName = 0;
+    size_t longestName = 0;
     for (auto const& [key, val] : areaCounts)
         {
         if (key.length() > longestName)
-            longestName = (int)key.length();
+            longestName = key.length();
         }
     //std::cout << "   * Area counts for tree" << std::endl;
     int sum = 0;
@@ -134,7 +134,7 @@ bool checkAreas(MetaData& meta, Tree* t) {
     
     if (problems.size() > 0)
         {
-        for (int i=0; i<problems.size(); i++)
+        for (size_t i=0; i<problems.size(); i++)
             std::cout << problems[i] << std::endl;
         return false;
         }

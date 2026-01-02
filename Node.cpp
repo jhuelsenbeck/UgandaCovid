@@ -3,7 +3,7 @@
 
 
 
-Node::Node(void) : name(""), areaName("") {
+Node::Node(void) : areaName(""), name("") {
 
     ancestor     = nullptr;
     firstChild   = nullptr;

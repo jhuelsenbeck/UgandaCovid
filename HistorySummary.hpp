@@ -11,7 +11,7 @@ class HistorySummary {
 
     public:
                                 HistorySummary(void) = delete;
-                                HistorySummary(int ns, int ti);
+                                HistorySummary(int ns);
                                ~HistorySummary(void);
         void                    addSample(int** counts);
         void                    summary(void);
@@ -19,7 +19,6 @@ class HistorySummary {
     private:
         int                     numSamples;
         int                     numStates;
-        int                     timeInterval;
         std::vector<int>        numChanges;
         std::vector<double>     treeLength;
         std::vector<IntMatrix*> transitionCount;

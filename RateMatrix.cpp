@@ -13,8 +13,8 @@ RateMatrix::RateMatrix(std::vector<std::string> a) : DoubleMatrix(a.size(),a.siz
 
     areas = a;
     
-    for (int i=0; i<numRows; i++)
-        for (int j=0; j<numCols; j++)
+    for (size_t i=0; i<numRows; i++)
+        for (size_t j=0; j<numCols; j++)
             (*this)(i,j) = 0.0;
 }
 
@@ -70,9 +70,9 @@ void RateMatrix::set(double* pi, double* r) {
     // set off diagonal elements
     double* rPtr = r;
     double averageRate = 0.0;
-    for (int i=0; i<numRows; i++)
+    for (size_t i=0; i<numRows; i++)
         {
-        for (int j=i+1; j<numCols; j++)
+        for (size_t j=i+1; j<numCols; j++)
             {
             (*this)(i,j) = (*rPtr) * pi[j];
             (*this)(j,i) = (*rPtr) * pi[i];
@@ -83,10 +83,10 @@ void RateMatrix::set(double* pi, double* r) {
     averageRate *= 2.0;
 
     // set diagonal elements
-    for (int i=0; i<numRows; i++)
+    for (size_t i=0; i<numRows; i++)
         {
         double sum = 0.0;
-        for (int j=0; j<numCols; j++)
+        for (size_t j=0; j<numCols; j++)
             {
             if (i != j)
                 sum += (*this)(i,j);
@@ -103,25 +103,25 @@ void RateMatrix::set(double* pi, double* r) {
 double RateMatrix::uniformize(RateMatrix* u) {
 
 	double mu = 0.0;
-	for (int i=0; i<numRows; i++)
+	for (size_t i=0; i<numRows; i++)
 		{
 		if ( -(*this)(i,i) >= mu )
 			mu = -(*this)(i,i);
 		}
     
     double scaleFactor = 1.0 / mu;
-	for (int i=0; i<numRows; i++)
-		for (int j=0; j<numCols; j++)
+	for (size_t i=0; i<numRows; i++)
+		for (size_t j=0; j<numCols; j++)
 			(*u)(i,j) = (*this)(i,j) * scaleFactor;
     
-	for (int i=0; i<numRows; i++)
+	for (size_t i=0; i<numRows; i++)
 		(*u)(i,i) += 1.0;
     
 #   if 1
-    for (int i=0; i<numRows; i++)
+    for (size_t i=0; i<numRows; i++)
         {
         double sum = 0.0;
-        for (int j=0; j<numCols; j++)
+        for (size_t j=0; j<numCols; j++)
             {
             sum += (*u)(i,j);
             if ((*u)(i,j) < 0.0)

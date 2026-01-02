@@ -8,7 +8,7 @@ History::History(void) : numChanges(0) {
 
 History::~History(void) {
 
-    for (int i=0; i<changesPool.size(); i++)
+    for (size_t i=0; i<changesPool.size(); i++)
         delete changesPool[i];
 }
 
@@ -17,7 +17,7 @@ Change* History::addChange(int a, int b, double t, int iid) {
     numChanges++;
     if (changesPool.size() < numChanges)
         {
-        for (int i=0; i<numChanges-changesPool.size(); i++)
+        for (size_t i=0; i<numChanges-changesPool.size(); i++)
             changesPool.push_back(new Change);
         }
     

@@ -120,7 +120,7 @@ void TransitionProbabilitiesMngr::printMap(void) {
         }
 }
 
-void TransitionProbabilitiesMngr::updateTransitionProbabilities(double rate) {
+void TransitionProbabilitiesMngr::updateTransitionProbabilities(void) {
 
     RateMatrix* Q = modelPtr->getRateMatrix();
     size_t numMatrices = tiMap.size();
@@ -142,9 +142,9 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(double rate) {
         }
     
     if (useBatched)
-        updateBatched(Q, rate);
+        updateBatched(Q);
     else
-        updateThreaded(Q, rate);
+        updateThreaded(Q);
     
 #   if 0
     checkTiProbs();
@@ -156,7 +156,7 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(double rate) {
 // Each task creates exp(Q * brlen) independently
 // -------------------------------------------------------------------
 
-void TransitionProbabilitiesMngr::updateThreaded(DoubleMatrix* Q, double rate) {
+void TransitionProbabilitiesMngr::updateThreaded(DoubleMatrix* Q) {
 
     auto tasks = new TransitionProbabilitiesTask[tiMap.size()];
     auto task = tasks;
@@ -192,7 +192,7 @@ void TransitionProbabilitiesMngr::updateThreaded(DoubleMatrix* Q, double rate) {
 //   - The rate matrix Q is large (>= 64x64)
 // -------------------------------------------------------------------
 
-void TransitionProbabilitiesMngr::updateBatched(DoubleMatrix* Q, double rate) {
+void TransitionProbabilitiesMngr::updateBatched(DoubleMatrix* Q) {
 
     // Clear and populate the batch vectors
     batchBranchLengths.clear();

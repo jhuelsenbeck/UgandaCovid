@@ -44,7 +44,7 @@ std::string UserSettings::arguments(void) {
     str += std::to_string(numThreads) + " ";
     str += "-r ";
     str += rootDate + " ";
-    for (int i=0; i<boundaryDates.size(); i++)
+    for (size_t i=0; i<boundaryDates.size(); i++)
         {
         str += "-d ";
         str += boundaryDates[i] + " ";
@@ -74,7 +74,7 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
         Msg::error("Incorrect number of arguments");
     
     std::string cmd = "";
-    for (int i=1; i<args.size(); i++)
+    for (size_t i=1; i<args.size(); i++)
         {
         std::string argument = args[i];
         if (cmd == "")
@@ -128,7 +128,7 @@ void UserSettings::print(void) {
     std::cout << "     Mapping frequency = " << mappingFrequency << std::endl;
     std::cout << "     Root date         = " << rootDate << std::endl;
     std::cout << "     Boundary dates    = ";
-    for (int i=0; i<boundaryDates.size(); i++)
+    for (size_t i=0; i<boundaryDates.size(); i++)
         std::cout << boundaryDates[i] << " ";
     std::cout << std::endl;
 }

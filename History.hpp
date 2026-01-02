@@ -23,11 +23,11 @@ class History {
         Change*                 addChange(int a, int b, double t, int iid);
         void                    clearHistory(void);
         std::set<Change*>&      getChanges(void) { return changes; }
-        int                     getNumChanges(void) { return numChanges; }
+        size_t                  getNumChanges(void) { return numChanges; }
         void                    removeChanges(std::set<Change*>& goners);
     
     private:
-        int                     numChanges;
+        size_t                  numChanges;
         std::set<Change*>       changes;
         std::vector<Change*>    changesPool;
 };

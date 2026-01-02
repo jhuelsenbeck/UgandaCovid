@@ -10,7 +10,7 @@
 
 
 CondLikeJobMngr::CondLikeJobMngr(Tree* t, ThreadPool* tp, int na) : 
-    tree(t), threadPool(tp), numStates(na) {
+    threadPool(tp), tree(t), numStates(na) {
     
     int numNodesInJob = 500;
     std::vector<Node*>& downPassSeq = t->getDownPassSequence();
@@ -117,7 +117,7 @@ CondLikeJobMngr::~CondLikeJobMngr(void) {
 
 CondLikeJob* CondLikeJobMngr::addJob(void) {
 
-    CondLikeJob* newJob = new CondLikeJob(this, threadPool, numStates);
+    CondLikeJob* newJob = new CondLikeJob(threadPool, numStates);
     jobs.push_back(newJob);
     return newJob;
 }

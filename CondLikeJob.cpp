@@ -29,8 +29,8 @@
 
 
 
-CondLikeJob::CondLikeJob(CondLikeJobMngr* m, ThreadPool* tp, int na) : 
-    ThreadTask(), myManager(m), threadPool(tp), numStates(na) {
+CondLikeJob::CondLikeJob(ThreadPool* tp, int na) : 
+    ThreadTask(), threadPool(tp), numStates(na) {
 
     jobId = 0;
     numDependencies = 0;
@@ -61,13 +61,13 @@ CondLikeJob::~CondLikeJob(void) {
 void CondLikeJob::conditionalLikelihood(void) {
 
     // Dispatch to optimized or portable version based on platform
-#if defined(CONDLIKE_USE_ACCELERATE)
+#   if defined(CONDLIKE_USE_ACCELERATE)
     conditionalLikelihoodOptimized();
-#elif defined(CONDLIKE_USE_CBLAS)
+#   elif defined(CONDLIKE_USE_CBLAS)
     conditionalLikelihoodOptimized();
-#else
+#   else
     conditionalLikelihoodPortable();
-#endif
+#   endif
 }
 
 // -------------------------------------------------------------------
@@ -81,7 +81,7 @@ void CondLikeJob::conditionalLikelihood(void) {
 
 void CondLikeJob::conditionalLikelihoodOptimized(void) {
 
-#if defined(CONDLIKE_USE_ACCELERATE) || defined(CONDLIKE_USE_CBLAS)
+#   if defined(CONDLIKE_USE_ACCELERATE) || defined(CONDLIKE_USE_CBLAS)
     lnScaler = 0.0;
     const int n = numStates;
     
@@ -110,7 +110,7 @@ void CondLikeJob::conditionalLikelihoodOptimized(void) {
                         tempResult, 1); // output vector with stride 1
             
             // Add log(tempResult) to clSum
-#if defined(CONDLIKE_USE_ACCELERATE)
+#           if defined(CONDLIKE_USE_ACCELERATE)
             // Use Accelerate's vectorized log for all n values at once
             // vvlog computes log(x) for a vector - much faster than scalar loop
             int nn = n;
@@ -118,12 +118,12 @@ void CondLikeJob::conditionalLikelihoodOptimized(void) {
             
             // Vectorized addition: clSum += tempResult
             cblas_daxpy(n, 1.0, tempResult, 1, clSum, 1);
-#else
+#           else
             // OpenBLAS path: scalar log (still benefits from dgemv)
             for (int i = 0; i < n; i++) {
                 clSum[i] += log(tempResult[i]);
             }
-#endif
+#           endif
         }
         
         // Find maximum for rescaling (prevents underflow)
@@ -136,7 +136,7 @@ void CondLikeJob::conditionalLikelihoodOptimized(void) {
         // Rescale and convert back to probabilities
         double* clP = parentNode->getConditionalLikelihood();
         
-#if defined(CONDLIKE_USE_ACCELERATE)
+#       if defined(CONDLIKE_USE_ACCELERATE)
         // Vectorized: clSum = clSum - largestLogProb, then exp
         double negLargest = -largestLogProb;
         int nn = n;
@@ -147,12 +147,12 @@ void CondLikeJob::conditionalLikelihoodOptimized(void) {
         
         // Vectorized exp
         vvexp(clP, clP, &nn);
-#else
+#       else
         // Scalar fallback
         for (int i = 0; i < n; i++) {
             clP[i] = exp(clSum[i] - largestLogProb);
         }
-#endif
+#       endif
         
         lnScaler += largestLogProb;
         
@@ -161,10 +161,10 @@ void CondLikeJob::conditionalLikelihoodOptimized(void) {
         if (dependentJob != nullptr)
             dependentJob->resolveDependency();
     }
-#else
+#   else
     // Fallback if no BLAS available
     conditionalLikelihoodPortable();
-#endif
+#   endif
 }
 
 // -------------------------------------------------------------------
@@ -181,45 +181,51 @@ void CondLikeJob::conditionalLikelihoodPortable(void) {
     lnScaler = 0.0;
     const int n = numStates;
     
-    for (auto p = nodes.begin(); p != nodes.end(); p++) {
+    for (auto p = nodes.begin(); p != nodes.end(); p++) 
+        {
         Node* parentNode = *p;
         
-        // Initialize clSum to zeros
-        for (int i = 0; i < n; i++)
+        // initialize clSum to zeros
+        for (int i=0; i<n; i++)
             clSum[i] = 0.0;
             
-        // Process each child
-        for (Node* d = parentNode->getFirstChild(); d != nullptr; d = d->getNextSibling()) {
+        // process each descendant
+        for (Node* d = parentNode->getFirstChild(); d != nullptr; d = d->getNextSibling()) 
+            {
             double* P = d->getTransitionProbability()->begin();
             double* CL = d->getConditionalLikelihood();
             
-            // Matrix-vector multiply: tempResult = P * CL
-            // Written to help auto-vectorization
-            for (int i = 0; i < n; i++) {
+            // matrix-vector multiply: tempResult = P * CL
+            // written to help auto-vectorization
+            for (int i=0; i<n; i++) 
+                {
                 double sum = 0.0;
                 double* Prow = P + i * n;  // Pointer to row i of P
                 
-                // Inner loop - compiler can auto-vectorize this
-                for (int j = 0; j < n; j++) {
+                // inner loop - compiler can auto-vectorize this
+                for (int j = 0; j < n; j++) 
+                    {
                     sum += Prow[j] * CL[j];
-                }
+                    }
                 
                 clSum[i] += log(sum);
+                }
             }
-        }
 
-        // Find maximum for rescaling
+        // find maximum for rescaling
         double largestLogProb = clSum[0];
-        for (int i = 1; i < n; i++) {
+        for (int i = 1; i < n; i++) 
+            {
             if (clSum[i] > largestLogProb)
                 largestLogProb = clSum[i];
-        }
+            }
         
         // Rescale and convert to probabilities
         double* clP = parentNode->getConditionalLikelihood();
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < n; i++) 
+            {
             clP[i] = exp(clSum[i] - largestLogProb);
-        }
+            }
         
         lnScaler += largestLogProb;
                     

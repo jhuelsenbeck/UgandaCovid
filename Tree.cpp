@@ -330,14 +330,11 @@ void Tree::removeNodes(std::vector<Node*>& nodesToRemove) {
         {
         if (p->getIsTip() == false)
             {
-            // LCRS iteration over children
-            int numDescendantsMarked = 0;
+            // iteration over children
             int numDescendantsUnmarked = 0;
             for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
                 {
-                if (d->getScratchBool() == true)
-                    numDescendantsMarked++;
-                else
+                if (d->getScratchBool() == false)
                     numDescendantsUnmarked++;
                 }
             if (numDescendantsUnmarked == 0 || numDescendantsUnmarked == 1)
@@ -470,12 +467,12 @@ void Tree::removeNodes(std::vector<Node*>& nodesToRemove) {
     std::cout << "     Number of tips before removal = " << numTipsBefore << std::endl;
     std::cout << "     Number of tips after removal  = " << numTipsAfter << std::endl;
     std::cout << "     Tree length before removal    = ";
-    for (int i=0; i<treeLengthBefore.size(); i++)
+    for (size_t i=0; i<treeLengthBefore.size(); i++)
         std::cout << treeLengthBefore[i] << " ";
     std::cout << std::endl;
     std::cout << "     Tree length after removal     = " << treeLengthAfter << std::endl;
     std::cout << "     Tree length difference        = ";
-    for (int i=0; i<treeLengthBefore.size(); i++)
+    for (size_t i=0; i<treeLengthBefore.size(); i++)
         std::cout << treeLengthBefore[i] - treeLengthAfter << " ";
     std::cout << std::endl;
     std::cout << "     " << numTipsAfter << " + " << nodesToRemove.size() << " = " << numTipsAfter + nodesToRemove.size() << std::endl;

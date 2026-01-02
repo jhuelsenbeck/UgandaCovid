@@ -46,7 +46,7 @@ class TransitionProbabilitiesMngr {
                                    ~TransitionProbabilitiesMngr(void);
         TransitionProbabilities*    getTiProb(int brlen);
         void                        printMap(void);
-        void                        updateTransitionProbabilities(double rate);
+        void                        updateTransitionProbabilities(void);
         
         // Backend selection
         void                        setComputeBackend(TiProbComputeBackend backend) { computeBackend = backend; }
@@ -61,8 +61,8 @@ class TransitionProbabilitiesMngr {
                 
     private:
         void                        checkTiProbs(void);
-        void                        updateThreaded(DoubleMatrix* Q, double rate);
-        void                        updateBatched(DoubleMatrix* Q, double rate);
+        void                        updateThreaded(DoubleMatrix* Q);
+        void                        updateBatched(DoubleMatrix* Q);
         
         Model*                      modelPtr;
         ThreadPool*                 threadPool;

@@ -26,7 +26,6 @@ MetaData::MetaData(std::string fileName, std::string rd) {
     std::vector<std::string> tokens;
     std::string key = "";
     int lineNum = 0;
-    int numMissingDates = 0;
     while (getline(metaStream, lineStr))
         {
         //std::cout << lineNum << ": " << lineStr << std::endl;
@@ -74,14 +73,12 @@ MetaData::MetaData(std::string fileName, std::string rd) {
                     d.day = -1;
                     collectionDates.insert( std::make_pair(key, d) );
                     //std::cout << lineStr << std::endl;
-                    numMissingDates++;
                     }
                 }
 
             }
         lineNum++;
         }
-    //std::cout << "   * Number of missing tip dates = " << numMissingDates << std::endl;
 
     // close the file
     metaStream.close();
@@ -186,18 +183,18 @@ void MetaData::assignTimeIntervals(Tree* t, std::vector<std::string> boundaryDat
     std::set<int> upperVals;
     lowerVals.insert(0);
     upperVals.insert(5 * t->getRoot()->getTime());
-    for (int i=0; i<boundaryDates.size(); i++)
+    for (size_t i=0; i<boundaryDates.size(); i++)
         {
         CollectionDate date = extractDateInfo(boundaryDates[i]);
         int numDays = daysFromCivil(date.year, date.month, date.day);
         lowerVals.insert(numDays);
         upperVals.insert(numDays);
         }
-    for (int i=0; i<lowerVals.size(); i++)
+    for (size_t i=0; i<lowerVals.size(); i++)
         {
         int x = 0, y = 0;
         
-        int j=0;
+        size_t j = 0;
         for (int lower : lowerVals)
             {
             if (j == i)
@@ -207,7 +204,7 @@ void MetaData::assignTimeIntervals(Tree* t, std::vector<std::string> boundaryDat
                 }
             j++;
             }
-        j=0;
+        j = 0;
         for (int upper : upperVals)
             {
             if (j == i)
@@ -268,7 +265,7 @@ void MetaData::assignTimeIntervals(Tree* t, std::vector<std::string> boundaryDat
             }
         }
     std::cout << "   * Tree length in intervals:" << std::endl;
-    for (int i=0; i<intervalTreeLength.size(); i++)
+    for (size_t i=0; i<intervalTreeLength.size(); i++)
         std::cout << "     Interval " << i << ": " << intervalTreeLength[i] << std::endl;
     std::cout << "   * Branches spanning interval:" << std::endl;
     std::cout << "     Num. Spanning:     " << numSpanningBranches << std::endl;
@@ -742,7 +739,7 @@ void MetaData::tipToRootInfo(Tree* t, std::string fn) {
         Msg::error("Cannot open file \"" + fn + "\"");
 
     strm << "x <- c(";
-    for (int i=0; i<xVals.size(); i++)
+    for (size_t i=0; i<xVals.size(); i++)
         {
         if (i != 0)
             strm << ",";
@@ -750,7 +747,7 @@ void MetaData::tipToRootInfo(Tree* t, std::string fn) {
         }
     strm << ");" << std::endl;
     strm << "y <- c(";
-    for (int i=0; i<yVals.size(); i++)
+    for (size_t i=0; i<yVals.size(); i++)
         {
         if (i != 0)
             strm << ",";

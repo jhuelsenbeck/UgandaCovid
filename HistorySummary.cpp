@@ -5,14 +5,14 @@
 
 
 
-HistorySummary::HistorySummary(int ns, int ti) : numSamples(ns), timeInterval(ti) {
+HistorySummary::HistorySummary(int ns) : numSamples(ns) {
 
     numSamples = 0;
 }
 
 HistorySummary::~HistorySummary(void) {
 
-    for (int i=0; i<transitionCount.size(); i++)
+    for (size_t i=0; i<transitionCount.size(); i++)
         delete transitionCount[i];
 }
 
@@ -37,7 +37,7 @@ void HistorySummary::summary(void) {
     double aveOutof = 0.0;
     double aveNumChanges = 0.0;
     
-    for (int n=0; n<transitionCount.size(); n++)
+    for (size_t n=0; n<transitionCount.size(); n++)
         {
         int numIntoUganda = 0;
         int numOutofUganda = 0;

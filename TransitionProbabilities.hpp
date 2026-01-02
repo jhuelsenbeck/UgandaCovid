@@ -96,9 +96,9 @@ class TransitionProbabilities : public DoubleMatrix {
 inline std::ostream& operator<<(std::ostream& os, const TransitionProbabilities& m) {
 
     os << std::fixed << std::setprecision(3) << std::scientific;
-    for (int i=0; i<m.numRows; i++)
+    for (size_t i=0; i<m.numRows; i++)
         {
-        for (int j=0; j<m.numCols; j++)
+        for (size_t j=0; j<m.numCols; j++)
             {
             if (m(i,j) > 0)
                 os << " ";

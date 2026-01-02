@@ -5,8 +5,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include "History.hpp"
 #include "Threads.hpp"
-class Change;
 class CondLikeJobMngr;
 class History;
 class MetaData;
@@ -49,7 +49,7 @@ class Model {
         void                            incrementDwellTimes(History* h, Node* p, Change* change);
         void                            initializeConditionalLikelihoods(void);
         void                            initializeHistories(void);
-        void                            initializeMatrixPowers(int num);
+        void                            initializeMatrixPowers(size_t num);
         void                            initializeParameters(Tree* tp, RateMatrix* m);
         void                            printMatrixPowers(void);
         std::vector<Samples*>           readParameterFile(std::string fn);
@@ -61,7 +61,7 @@ class Model {
         double                          updateR(void);
         void                            updateRateMatrix(void);
         double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal);
-        double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, int k, double minVal);
+        double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, size_t k, double minVal);
         CondLikeJobMngr*                clManager;
         Tree*                           tree;
         MetaData*                       metaData;
