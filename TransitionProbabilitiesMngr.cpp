@@ -1,6 +1,8 @@
+#include "GPUMatrixExponentialBatch.hpp"
 #include "Model.hpp"
 #include "Msg.hpp"
 #include "Node.hpp"
+#include "RateMatrix.hpp"
 #include "Threads.hpp"
 #include "TransitionProbabilities.hpp"
 #include "TransitionProbabilitiesMngr.hpp"
@@ -20,6 +22,17 @@ TransitionProbabilitiesMngr::TransitionProbabilitiesMngr(Model* m, Tree* t, size
     // set the dimensions of the rate matrices
     dim = d;
     
+    // Initialize GPU batcher singleton
+    gpuBatcher = &GPUMatrixExponentialBatch::getInstance();
+    
+    // Default settings
+    computeBackend = TiProbComputeBackend::Auto;
+    batchThreshold = 8;  // Use batched approach for >= 8 matrices
+    
+    // For large matrices, the batched approach is always better
+    if (dim >= 64)
+        batchThreshold = 4;
+    
     // allocate matrices for the unique branch lengths
     std::vector<Node*>& dpSeq = t->getDownPassSequence();
     for (int i=0, n=(int)dpSeq.size(); i<n; i++)
@@ -36,7 +49,13 @@ TransitionProbabilitiesMngr::TransitionProbabilitiesMngr(Model* m, Tree* t, size
             tiMap.insert( std::make_pair(key,ti) );
             }
         }
+    
+    // Pre-allocate vectors for batch operations
+    batchBranchLengths.reserve(tiMap.size());
+    batchOutputs.reserve(tiMap.size());
+    
     std::cout << "     Tree has " << tiMap.size() << " unique branch lengths" << std::endl;
+    std::cout << "     GPU batch: " << (gpuBatcher->isAvailable() ? gpuBatcher->getDeviceName() : "Not available") << std::endl;
 }
 
 TransitionProbabilitiesMngr::~TransitionProbabilitiesMngr(void) {
@@ -81,6 +100,18 @@ TransitionProbabilities* TransitionProbabilitiesMngr::getTiProb(int brlen) {
     return nullptr;
 }
 
+bool TransitionProbabilitiesMngr::isGPUAvailable(void) const {
+
+    return gpuBatcher != nullptr && gpuBatcher->isAvailable();
+}
+
+const char* TransitionProbabilitiesMngr::getGPUDeviceName(void) const {
+
+    if (gpuBatcher != nullptr)
+        return gpuBatcher->getDeviceName();
+    return "N/A";
+}
+
 void TransitionProbabilitiesMngr::printMap(void) {
 
     for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
@@ -92,11 +123,44 @@ void TransitionProbabilitiesMngr::printMap(void) {
 void TransitionProbabilitiesMngr::updateTransitionProbabilities(double rate) {
 
     RateMatrix* Q = modelPtr->getRateMatrix();
+    size_t numMatrices = tiMap.size();
+    
+    // Select compute path based on backend setting
+    bool useBatched = false;
+    
+    switch (computeBackend)
+        {
+        case TiProbComputeBackend::Auto:
+            useBatched = (numMatrices >= batchThreshold);
+            break;
+        case TiProbComputeBackend::ThreadedTasks:
+            useBatched = false;
+            break;
+        case TiProbComputeBackend::BatchedAccelerate:
+            useBatched = true;
+            break;
+        }
+    
+    if (useBatched)
+        updateBatched(Q, rate);
+    else
+        updateThreaded(Q, rate);
+    
+#   if 0
+    checkTiProbs();
+#   endif
+}
+
+// -------------------------------------------------------------------
+// Original threaded approach: one task per branch length
+// Each task creates exp(Q * brlen) independently
+// -------------------------------------------------------------------
+
+void TransitionProbabilitiesMngr::updateThreaded(DoubleMatrix* Q, double rate) {
 
     auto tasks = new TransitionProbabilitiesTask[tiMap.size()];
     auto task = tasks;
     
-    // update the main tree
     int id = 0;
     double r = modelPtr->getSubstitutionRate();
     for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
@@ -113,8 +177,41 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(double rate) {
         
     threadPool->wait();
     delete [] tasks;
+}
+
+// -------------------------------------------------------------------
+// Batched approach: all branch lengths processed together
+// Uses GPUMatrixExponentialBatch which:
+//   - Shares the same Q matrix across all computations
+//   - Uses static buffer pools to avoid heap fragmentation
+//   - Leverages ThreadPool for parallel Padé[13/13] computation
+//   - Each worker thread has its own working buffers
+//
+// This is more efficient than the threaded approach when:
+//   - There are many unique branch lengths (>= batchThreshold)
+//   - The rate matrix Q is large (>= 64x64)
+// -------------------------------------------------------------------
+
+void TransitionProbabilitiesMngr::updateBatched(DoubleMatrix* Q, double rate) {
+
+    // Clear and populate the batch vectors
+    batchBranchLengths.clear();
+    batchOutputs.clear();
     
-#   if 0
-    checkTiProbs();
-#   endif
+    double r = modelPtr->getSubstitutionRate();
+    
+    for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
+        {
+        double v = (double)it->first.first * r;
+        if (it->first.first == 0)
+            v = MIN_BRLEN;
+        it->second->setCalculatedBrlen(v);
+        
+        batchBranchLengths.push_back(v);
+        batchOutputs.push_back(it->second);  // TransitionProbabilities inherits from DoubleMatrix
+        }
+    
+    // Compute all matrix exponentials in parallel
+    // GPUMatrixExponentialBatch::computeBatch uses the ThreadPool internally
+    gpuBatcher->computeBatch(*Q, batchBranchLengths, batchOutputs, threadPool);
 }
