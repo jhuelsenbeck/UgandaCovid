@@ -18,6 +18,7 @@ struct Change {
 class History {
 
     public:
+                                History(void);  // Initialize numChanges
                                ~History(void);
         Change*                 addChange(int a, int b, double t, int iid);
         void                    clearHistory(void);

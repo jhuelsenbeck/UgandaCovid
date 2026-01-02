@@ -26,7 +26,6 @@ class Tree {
         Node*               findTaxonNamed(std::string tName);
         void                print(void);
         void                print(Node* subtree);
-        Tree*               prune(int ntLower, int ntUpper);
         void                removeNodes(std::vector<Node*>& nodesToRemove);
         void                setNumAreas(int x) { numAreas = x; }
     

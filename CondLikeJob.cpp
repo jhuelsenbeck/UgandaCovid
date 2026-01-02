@@ -1,3 +1,4 @@
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <mutex>
@@ -9,34 +10,30 @@
 
 
 
-CondLikeJob::CondLikeJob(CondLikeJobMngr* m, ThreadPool* tp, int na) : ThreadTask() {
+CondLikeJob::CondLikeJob(CondLikeJobMngr* m, ThreadPool* tp, int na) : 
+    ThreadTask(), myManager(m), threadPool(tp), numStates(na) {
 
-    myManager = m;
-    threadPool = tp;
     jobId = 0;
-    numStates = na;
     numDependencies = 0;
-    nodes = new std::vector<Node*>;
     clSum = (double*)malloc(numStates*sizeof(double));
     clSumEnd = clSum + numStates;
 }
 
 CondLikeJob::~CondLikeJob(void) {
 
-    delete nodes;
-    delete [] clSum;
+    free(clSum);
 }
 
 void CondLikeJob::conditionalLikelihood(void) {
 
     lnScaler = 0.0;
-    for (auto p=nodes->begin(); p != nodes->end(); p++)
+    for (auto p=nodes.begin(); p != nodes.end(); p++)
         {
         for (double* s=clSum; s != clSumEnd; s++)
             (*s) = 0.0;
             
-        std::set<Node*>& pDesc = (*p)->getDescendants();
-        for (Node* d : pDesc)
+        // LCRS iteration over children
+        for (Node* d = (*p)->getFirstChild(); d != nullptr; d = d->getNextSibling())
             {
             double* p_ij      = d->getTransitionProbability()->begin();
             double* clD_begin = d->getConditionalLikelihood();
@@ -79,9 +76,9 @@ void CondLikeJob::conditionalLikelihood(void) {
 void CondLikeJob::print(void) {
 
     std::cout << "Job " << jobId << std::endl;
-    std::cout << "   Number of nodes : " << nodes->size() << std::endl;
+    std::cout << "   Number of nodes : " << nodes.size() << std::endl;
     std::cout << "   Nodes           : ";
-    for (auto p=nodes->begin(); p != nodes->end(); p++)
+    for (auto p=nodes.begin(); p != nodes.end(); p++)
         std::cout << (*p)->getIndex() << " ";
     std::cout << std::endl;
     std::cout << "   No. Dependencies: " << numDependencies << std::endl;
@@ -96,7 +93,7 @@ void CondLikeJob::resolveDependency(void) {
     mtx.unlock();
 }
 
-void CondLikeJob::run(MathCache&) {
+void CondLikeJob::run(void) {
 
     // compute conditional likelihoods here
     conditionalLikelihood(); // actual work to be accomplished

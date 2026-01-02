@@ -7,6 +7,7 @@
 #include "Model.hpp"
 #include "Node.hpp"
 #include "Msg.hpp"
+#include "RandomVariable.hpp"
 #include "RateMatrix.hpp"
 #include "Threads.hpp"
 #include "Tree.hpp"
@@ -33,6 +34,9 @@ int main(int argc, char* argv[]) {
         threadPool = new ThreadPool;
     else
         threadPool = new ThreadPool(settings.getNumTreads());
+        
+    // instantiate the random number generator
+    RandomVariable rng;
     
     // read the meta-data file
     MetaData meta(settings.getTsvFile(), settings.getRootDate());
@@ -63,10 +67,10 @@ int main(int argc, char* argv[]) {
     
     // set up the model (tree/rate matrix combination)
     // model takes ownership of Q and tree
-    Model model(tree, &meta, threadPool, &clMngr);
+    Model model(&rng, tree, &meta, threadPool, &clMngr);
     
     // run the MCMC algorithm
-    Mcmc mcmc(settings.getChainLength(), settings.getBurnIn(), settings.getPrintFrequency(), settings.getSampleFrequency(), settings.getMappingFrequency(), settings.getOutputFile(), &model);
+    Mcmc mcmc(&rng, settings.getChainLength(), settings.getBurnIn(), settings.getPrintFrequency(), settings.getSampleFrequency(), settings.getMappingFrequency(), settings.getOutputFile(), &model);
     mcmc.run();
     
     // clean up

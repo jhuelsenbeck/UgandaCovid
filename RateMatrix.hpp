@@ -10,7 +10,7 @@
 
 
 
-class RateMatrix : public RealMatrix {
+class RateMatrix : public DoubleMatrix {
 
     public:
                                     RateMatrix(void) = delete;

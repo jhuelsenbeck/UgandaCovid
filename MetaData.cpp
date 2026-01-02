@@ -4,6 +4,7 @@
 #include "Tree.hpp"
 #include <cmath>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <regex>
 
@@ -433,7 +434,7 @@ int MetaData::getIntervalId(double t) {
     return -1;
 }
 
-double MetaData::pickBestTime(Node* p, std::set<Node*>& pDesc) {
+double MetaData::pickBestTime(Node* p) {
     
     if (p->getAncestor() == nullptr)
         return p->getTime();
@@ -458,7 +459,8 @@ double MetaData::pickBestTime(Node* p, std::set<Node*>& pDesc) {
         {
         double pTime = it->first;
         double sum = p->getBrlenExact() - (pTime - pAncTime);
-        for (Node* d : pDesc)
+        // LCRS iteration over children
+        for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
             {
             double x = d->getTime() - pTime;
             double y = d->getBrlenExact();
@@ -557,12 +559,16 @@ double MetaData::iterateBranchTimes(Tree* t) {
             double oldestDescendantTime = p->getOldestDescendant();
             double ancestorTime = p->getAncestor()->getTime();
             double x = p->getBrlenExact() + p->getTime();
-            std::set<Node*>& pDesc = p->getDescendants();
-            for (Node* d : pDesc)
+            // LCRS iteration over children
+            int numDesc = 0;
+            for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
+                {
                 x -= d->getBrlenExact() - d->getTime();
-            x /= (1+pDesc.size());
+                numDesc++;
+                }
+            x /= (1 + numDesc);
             if (x < ancestorTime || x > oldestDescendantTime)
-                x = pickBestTime(p, pDesc);
+                x = pickBestTime(p);
             p->setTime(x);
             }
         }
@@ -581,12 +587,16 @@ double MetaData::iterateBranchTimesUp(Tree* t) {
             double oldestDescendantTime = p->getOldestDescendant();
             double ancestorTime = p->getAncestor()->getTime();
             double x = p->getBrlenExact() + p->getTime();
-            std::set<Node*>& pDesc = p->getDescendants();
-            for (Node* d : pDesc)
+            // LCRS iteration over children
+            int numDesc = 0;
+            for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
+                {
                 x -= d->getBrlenExact() - d->getTime();
-            x /= (1+pDesc.size());
+                numDesc++;
+                }
+            x /= (1 + numDesc);
             if (x < ancestorTime || x > oldestDescendantTime)
-                x = pickBestTime(p, pDesc);
+                x = pickBestTime(p);
             p->setTime(x);
             }
         }

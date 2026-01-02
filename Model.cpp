@@ -1,7 +1,8 @@
+#include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
-#include "BitVector.hpp"
 #include "CondLikeJobMngr.hpp"
 #include "History.hpp"
 #include "MetaData.hpp"
@@ -22,13 +23,12 @@
 
 
 
-Model::Model(Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr) : metaData(md) {
+Model::Model(RandomVariable* r, Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr) : 
+    rng(r), metaData(md), threadPool(thp), clManager(mngr) {
 
     // initialize the rate matrix
     RateMatrix* Q = new RateMatrix(md->getAreas());
 
-    clManager = mngr;
-    threadPool = thp;
     numStates = Q->getNumRows();
     updateType = "";
     
@@ -428,8 +428,8 @@ double Model::lnLikelihood(void) {
         {
         for (double* s=clSum; s != clSumEnd; s++)
             (*s) = 0.0;
-        std::set<Node*>& pDesc = (*p)->getDescendants();
-        for (Node* d : pDesc)
+        // LCRS iteration over children
+        for (Node* d = (*p)->getFirstChild(); d != nullptr; d = d->getNextSibling())
             {
             double* p_ij      = d->getTransitionProbability()->begin();
             double* clD_begin = d->getConditionalLikelihood();
@@ -506,77 +506,16 @@ double Model::lnPriorProbability(void) {
 
 void Model::map(void) {
         
-    // get a reference to the random number generator
-    RandomVariable& rng = RandomVariable::getInstance();
-    
-    //tiMngr->updateTransitionProbabilities(getSubstitutionRate());
-    
     // calculate conditional likelihoods to the root (threaded)
     clManager->calculateConditionalLikelihoods();
     
     // assign states to each end of every branch
-    assignNodeStates(&rng);
+    assignNodeStates(rng);
 
     // sample history for each branch
     //sampleHistoriesUsingRejectionSamplign(&rng);
-    int numChanges = sampleHistoriesUsingUniformization(&rng);
+    int numChanges = sampleHistoriesUsingUniformization(rng);
     std::cout << "           Number of changes = " << numChanges << std::endl;
-}
-
-int Model::parsimonyScore(void) {
-
-    std::vector<BitVector*> stateSets(tree->getNumNodes());
-    for (int i=0; i<stateSets.size(); i++)
-        stateSets[i] = new BitVector(numStates);
-    std::vector<int> descendantStateCounts(numStates);
-
-    std::vector<Node*>& dpSeq = tree->getDownPassSequence();
-    int n = 0;
-    for (Node* p : dpSeq)
-        {
-        if (p->getIsTip() == true)
-            {
-            int areaId = p->getAreaId();
-            if (areaId == -1)
-                stateSets[p->getIndex()]->set();
-            else
-                stateSets[p->getIndex()]->set(p->getAreaId());
-            }
-        else
-            {
-            std::set<Node*>& pDesc = p->getDescendants();
-            BitVector* pStateSet = stateSets[p->getIndex()];
-            pStateSet->set();
-            for (size_t i=0; i<numStates; i++)
-                descendantStateCounts[i] = 0;
-            for (Node* d : pDesc)
-                {
-                BitVector* dStateSet = stateSets[d->getIndex()];
-                *pStateSet &= *dStateSet;
-                int nSet = 0;
-                for (size_t i=0; i<numStates; i++)
-                    {
-                    bool tf = (*dStateSet)[i];
-                    if (tf == true)
-                        {
-                        nSet++;
-                        descendantStateCounts[i]++;
-                        }
-                    }
-                if (nSet != 0)
-                    {
-                    
-                    }
-//As for calculating parsimony scores on nonbinary trees… in PAUP* I haven’t done too much optimization because my tree searches are always on binary trees and calculation of tree lengths for user-specified trees is fast enough that I never worried much about it. Basically, I just use a simple application of the usual dynamic programming approach where the state set assigned to each node in a postorder traversal is the intersection of the state sets of the children, if it is nonempty. If this intersection is empty, the new state set is the union of the most frequent states in the state sets of the children. The tree length is increased by one each time the union is required. It’s essentially the algorithm of Hartigan 1973 (attached). I use some bit tricks to parallelize over sites (essentially what is described in the attached paper by Goloboff—he claimed his method was faster that PAUP’s and if that’s true it’s probably because he’s branching on special cases because otherwise the algorithms are essentially the same).
-
-                }
-            }
-        }
-
-    for (int i=0; i<stateSets.size(); i++)
-        delete stateSets[i];
-        
-    return n;
 }
 
 void Model::printMatrixPowers(void) {
@@ -997,8 +936,7 @@ void Model::switchActiveRateMatrix(void) {
 
 double Model::update(void) {
 
-    RandomVariable& rng = RandomVariable::getInstance();
-    double u = rng.uniformRv();
+    double u = rng->uniformRv();
     
     double lnProposalProb = 0.0;
     if (u <= 0.33)
@@ -1032,10 +970,9 @@ void Model::updateRateMatrix(void) {
 double Model::updateSubstitutionRate(void) {
 
     updateType = "colonization rate";
-    RandomVariable& rng = RandomVariable::getInstance();
     double oldValue = substitutionRate[0];
     double tuning = 0.01;
-    double factor = exp((rng.uniformRv()-0.5)*tuning);
+    double factor = exp((rng->uniformRv()-0.5)*tuning);
     double newValue = oldValue * factor;
     substitutionRate[1] = newValue;
     return log(newValue) - log(oldValue);
@@ -1054,14 +991,12 @@ double Model::updateR(void) {
 }
 
 double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal) {
-
-    RandomVariable& rng = RandomVariable::getInstance();
     
     std::vector<double> alphaForward(r[0].size());
     for (int i=0, n=(int)alphaForward.size(); i<n; i++)
         alphaForward[i] = oldVec[i] * alpha0 + 1.0;
         
-    Probability::Dirichlet::rv(&rng, alphaForward, newVec);
+    Probability::Dirichlet::rv(rng, alphaForward, newVec);
     Probability::Helper::normalize(newVec, minVal);
     
     std::vector<double> alphaReverse(r[0].size());
@@ -1074,8 +1009,6 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
 }
 
 double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, int k, double minVal) {
-
-    RandomVariable& rng = RandomVariable::getInstance();
     
     // choose which elements to update
     int n = (int)oldVec.size();
@@ -1085,7 +1018,7 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
     std::set<int> indices;
     while (indices.size() < k)
         {
-        int idx = (int)(rng.uniformRv() * n);
+        int idx = (int)(rng->uniformRv() * n);
         indices.insert(idx);
         }
     
@@ -1106,7 +1039,7 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
         alphaForward[i] = oldValues[i] * alpha0 + 1.0;
         
     std::vector<double> newValues(k+1);
-    Probability::Dirichlet::rv(&rng, alphaForward, newValues);
+    Probability::Dirichlet::rv(rng, alphaForward, newValues);
     Probability::Helper::normalize(newVec, minVal);
     
     std::vector<double> alphaReverse(k + 1);

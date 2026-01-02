@@ -45,7 +45,7 @@ class MetaData {
         void                        incrementIntervalTimes(Node* p, std::vector<double>& intervalDurations);
         double                      iterateBranchTimes(Tree* t);
         double                      iterateBranchTimesUp(Tree* t);
-        double                      pickBestTime(Node* p, std::set<Node*>& pDesc);
+        double                      pickBestTime(Node* p);
         void                        removeMissingAreas(Tree* t);
         double                      sumSquares(Tree* t);
         void                        tipToRootInfo(Tree* t, std::string fn);

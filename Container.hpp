@@ -426,6 +426,6 @@ typedef ArrayTemplate<int>    IntArray;
 typedef ArrayTemplate<double> DoubleArray;
 
 typedef MatrixTemplate<int>    IntMatrix;
-typedef MatrixTemplate<double> RealMatrix;
+typedef MatrixTemplate<double> DoubleMatrix;
 
 #endif

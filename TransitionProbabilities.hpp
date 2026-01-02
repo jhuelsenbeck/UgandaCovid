@@ -1,31 +1,54 @@
 #ifndef TransitionProbabilities_hpp
 #define TransitionProbabilities_hpp
 
+#include <cmath>
 #include "Container.hpp"
+#include "MathCacheAccelerated.hpp"
 #include "Node.hpp"
 #include "Threads.hpp"
 #include "Tree.hpp"
 
+// Legacy functions - kept for compatibility
 double factorial(int x);
 int logBase2Plus1(double x);
 int setQvalue(double tol);
 
 
+// -------------------------------------------------------------------
+// TransitionProbabilitiesTask
+// -------------------------------------------------------------------
+// Computes P = exp(Q * brlen) using Padé[13/13] approximant with
+// scaling and squaring. Uses Apple's Accelerate BLAS/LAPACK for
+// high-performance matrix operations.
+//
+// Key optimizations:
+// - Thread-local MathCacheAccelerated with persistent working buffers
+// - cblas_dgemm for matrix multiplication (vectorized, cache-blocked)
+// - dgetrf/dgetrs for LU solve (optimized pivoting)
+// - No heap allocations in hot path after first use
+// -------------------------------------------------------------------
 
 class TransitionProbabilitiesTask : public ThreadTask {
 
     public:
+    
+        // Thread-local accelerated cache - each worker gets its own
+        // Persists across task executions within the same thread
+        static MathCacheAccelerated& getCache() {
+            thread_local MathCacheAccelerated cache;
+            return cache;
+        }
     
         TransitionProbabilitiesTask(void) {
         
             taskId     = 0;
             numStates  = 0;
             brlen      = 0.0;
-            Q          = NULL;
-            P          = NULL;
+            Q          = nullptr;
+            P          = nullptr;
         }
         
-        void init(int i, int n, double v, RealMatrix* q, RealMatrix* p) {
+        void init(int i, int n, double v, DoubleMatrix* q, DoubleMatrix* p) {
         
             taskId     = i;
             numStates  = n;
@@ -34,86 +57,23 @@ class TransitionProbabilitiesTask : public ThreadTask {
             P          = p;
         }
 
-        /* The method approximates the matrix exponential, P = e^A, using
-           the algorithm 11.3.1, described in:
-
-           Golub, G. H., and C. F. Van Loan. 1996. Matrix Computations, Third Edition.
-              The Johns Hopkins University Press, Baltimore, Maryland.
-
-           The method has the advantage of error control. The error is controlled by
-           setting qValue appropriately (using the function SetQValue). */
-        void computeMatrixExponential(MathCache& cache, int qValue, double v, RealMatrix* probs) {
-                
-            assert(probs->getNumRows() == probs->getNumCols());
-            auto size = probs->getNumRows();
-
-            auto d  = cache.pushMatrix(size);
-            auto n  = cache.pushMatrix(size);
-            auto a  = cache.pushMatrix(size);
-            auto x  = cache.pushMatrix(size);
-            auto cx = cache.pushMatrix(size);
-
-            // A is the matrix Q * v and p = exp(a)
-            Q->multiply(v, *a);
-
-            // set up identity matrices
-            d->setIdentity();
-            n->setIdentity();
-            x->setIdentity();
-
-            auto maxAValue = a->maxDiagonal();
-            int y = logBase2Plus1(maxAValue);
-            int j = y < 0 ? 0 : y;
-
-            a->divideByPowerOfTwo(j);
+        void run(void) override {
             
-            double c = 1.0;
-            for (int k = 1; k <= qValue; k++)
-                {
-                c = c * (qValue - k + 1.0) / ((2.0 * qValue - k + 1.0) * k);
-
-                /* X = AX */
-                cache.multiply(*a, *x);
-
-                /* N = N + cX */
-                x->multiply(c, *cx);
-                n->add(*cx);
-
-                /* D = D + (-1)^k*cX */
-                int negativeFactor = (k % 2 == 0 ? 1 : -1);
-                if (negativeFactor == -1)
-                    cx->multiply(negativeFactor);
-                d->add(*cx);
-                }
-
-            cache.gaussianElimination(*d, *n, *probs);
-            if (j > 0)
-              cache.power(*probs, j+1);
-
-            for (auto p = probs->begin(), end = probs->end(); p < end; ++p)
-                *p = fabs(*p);
-
-            cache.popMatrix(5);
+            MathCacheAccelerated& cache = getCache();
+            cache.computeMatrixExponential(*Q, brlen, *P);
         }
-
-        virtual void run(MathCache& cache) {
-            
-            //std::cout << "Running task " << taskId << " for brlen=" << brlen << std::endl;
-            int qValue = setQvalue(10e-7);
-            computeMatrixExponential(cache, qValue, brlen, P);
-            }
 
     private:
         int             taskId;
         int             numStates;
         double          brlen;
-        RealMatrix*     Q;
-        RealMatrix*     P;
+        DoubleMatrix*     Q;
+        DoubleMatrix*     P;
 };
 
 
 
-class TransitionProbabilities : public RealMatrix {
+class TransitionProbabilities : public DoubleMatrix {
 
     public:
                     TransitionProbabilities(void) = delete;

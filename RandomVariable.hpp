@@ -1,28 +1,31 @@
 #ifndef RandomVariable_hpp
 #define RandomVariable_hpp
 
+#include <cstdint>
 #include <random>
-typedef std::uniform_real_distribution<double> uniform_dist;
+#include <string>
 
 
 
 class RandomVariable {
 
     public:
-                                RandomVariable(void);
-                                RandomVariable(const RandomVariable& obj) = delete;
-        static RandomVariable&  getInstance(void)
-                                    {
-                                    static RandomVariable singleRandomVariable;
-                                    return singleRandomVariable;
-                                    }
-        void                    setSeed(int32_t s);
-        void                    setSeed(std::seed_seq ss);
-        double                  uniformRv(void);
-     
+                                                RandomVariable(void);
+        explicit                                RandomVariable(uint32_t seed);
+                                                RandomVariable(const RandomVariable&) = delete;
+                                                RandomVariable(RandomVariable&&) = default;
+                                               ~RandomVariable(void) = default;
+        RandomVariable&                         operator=(const RandomVariable&) = delete;
+        std::mt19937&                           getGenerator(void) { return rng; }
+        uint32_t                                getSeed(void) const { return initialSeed; }
+        void                                    setSeed(uint32_t seed);
+        double                                  uniformRv(void); // [0, 1)
+
     private:
-        std::mt19937            mt;
-        uniform_dist            uniformDistribution;
+        void                                    initializeFromRandomDevice(void);
+        std::mt19937                            rng;
+        std::uniform_real_distribution<double>  uniformDist;
+        uint32_t                                initialSeed;
 };
 
 #endif

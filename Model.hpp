@@ -24,7 +24,7 @@ class Model {
 
     public:
                                         Model(void) = delete;
-                                        Model(Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr);
+                                        Model(RandomVariable* r, Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr);
                                        ~Model(void);
         void                            accept(void);
         int***                          getIntervalTransitions(void) { return intervalTransitions; }
@@ -39,7 +39,6 @@ class Model {
         double                          lnLikelihood(void);
         double                          lnPriorProbability(void);
         void                            map(void);
-        int                             parsimonyScore(void);
         void                            reject(void);
         double                          update(void);
     
@@ -66,6 +65,7 @@ class Model {
         CondLikeJobMngr*                clManager;
         Tree*                           tree;
         MetaData*                       metaData;
+        RandomVariable*                 rng;
         int                             activeRateMatrix;
         RateMatrix*                     q[2];
         RateMatrix*                     uniformizedRateMatrix;

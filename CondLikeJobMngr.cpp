@@ -9,9 +9,9 @@
 
 
 
-CondLikeJobMngr::CondLikeJobMngr(Tree* t, ThreadPool* tp, int na) : tree(t), threadPool(tp) {
+CondLikeJobMngr::CondLikeJobMngr(Tree* t, ThreadPool* tp, int na) : 
+    tree(t), threadPool(tp), numStates(na) {
     
-    numStates = na;
     int numNodesInJob = 500;
     std::vector<Node*>& downPassSeq = t->getDownPassSequence();
     
@@ -30,9 +30,9 @@ CondLikeJobMngr::CondLikeJobMngr(Tree* t, ThreadPool* tp, int na) : tree(t), thr
             }
         else
             {
-            std::set<Node*>& pDesc = p->getDescendants();
+            // LCRS iteration over children
             int sum = 0;
-            for (Node* d : pDesc)
+            for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
                 sum += d->getScratchInt();
             p->setScratchInt(sum + 1);
             }
@@ -63,8 +63,8 @@ CondLikeJobMngr::CondLikeJobMngr(Tree* t, ThreadPool* tp, int na) : tree(t), thr
     for (std::vector<CondLikeJob*>::iterator it = jobs.begin(); it != jobs.end(); it++)
         {
         CondLikeJob* jobPtr = *it;
-        std::vector<Node*>* jobNodes = (*it)->getJobNodes();
-        for (auto p=jobNodes->begin(); p != jobNodes->end(); p++)
+        std::vector<Node*>& jobNodes = (*it)->getJobNodes();
+        for (auto p=jobNodes.begin(); p != jobNodes.end(); p++)
             {
             if ((*p)->getJob() != nullptr)
                 Msg::error("Node is already assigned to a job");
@@ -75,14 +75,14 @@ CondLikeJobMngr::CondLikeJobMngr(Tree* t, ThreadPool* tp, int na) : tree(t), thr
     // resolve the job dependencies
     for (std::vector<CondLikeJob*>::iterator it = jobs.begin(); it != jobs.end(); it++)
         {
-        std::vector<Node*>* jobNodes = (*it)->getJobNodes();
-        for (auto p=jobNodes->begin(); p != jobNodes->end(); p++)
+        std::vector<Node*>& jobNodes = (*it)->getJobNodes();
+        for (auto p=jobNodes.begin(); p != jobNodes.end(); p++)
             {
             CondLikeJob* pJob = (*p)->getJob();
             if (pJob != *it)
                 Msg::error("P should be in this job!");
-            std::set<Node*>& pDescendants = (*p)->getDescendants();
-            for (Node* d : pDescendants)
+            // LCRS iteration over children
+            for (Node* d = (*p)->getFirstChild(); d != nullptr; d = d->getNextSibling())
                 {
                 CondLikeJob* dJob = d->getJob();
                 if (pJob != dJob && dJob != nullptr)
@@ -110,6 +110,9 @@ CondLikeJobMngr::CondLikeJobMngr(Tree* t, ThreadPool* tp, int na) : tree(t), thr
 
 CondLikeJobMngr::~CondLikeJobMngr(void) {
 
+    for (CondLikeJob* job : jobs)
+        delete job;
+    jobs.clear();
 }
 
 CondLikeJob* CondLikeJobMngr::addJob(void) {

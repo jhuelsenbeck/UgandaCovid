@@ -11,7 +11,7 @@ MathCache::~MathCache(void) {
 
 }
 
-RealMatrix* MathCache::pushMatrix(size_t rows, size_t columns) {
+DoubleMatrix* MathCache::pushMatrix(size_t rows, size_t columns) {
 
     assert(matrixCount < bufferSize -1);
     auto m = matrixBuffer + matrixCount++;
@@ -19,7 +19,7 @@ RealMatrix* MathCache::pushMatrix(size_t rows, size_t columns) {
     return m;
 }
 
-RealMatrix* MathCache::pushMatrix(size_t size) {
+DoubleMatrix* MathCache::pushMatrix(size_t size) {
 
     assert(matrixCount < bufferSize - 1);
     auto m = matrixBuffer + matrixCount++;
@@ -47,7 +47,7 @@ void MathCache::popArray() {
     --arrayCount;
 }
 
-void MathCache::backSubstitutionRow(RealMatrix& U, double* b) {
+void MathCache::backSubstitutionRow(DoubleMatrix& U, double* b) {
 
     int n = (int)U.getNumRows();
     int np1 = n + 1;
@@ -78,7 +78,7 @@ void MathCache::backSubstitutionRow(RealMatrix& U, double* b) {
         }
 }
 
-void MathCache::forwardSubstitutionRow(RealMatrix& L, double* const b) {
+void MathCache::forwardSubstitutionRow(DoubleMatrix& L, double* const b) {
 
     auto lrows  = L.getNumRows();
     auto lcols  = L.getNumCols();
@@ -102,7 +102,7 @@ void MathCache::forwardSubstitutionRow(RealMatrix& L, double* const b) {
         }
 }
 
-void MathCache::computeLandU(RealMatrix& A, RealMatrix& L, RealMatrix& U) {
+void MathCache::computeLandU(DoubleMatrix& A, DoubleMatrix& L, DoubleMatrix& U) {
 
     auto n      = A.getNumRows();
     auto abegin = A.begin();
@@ -176,7 +176,7 @@ void MathCache::computeLandU(RealMatrix& A, RealMatrix& L, RealMatrix& U) {
         }
 }
 
-void MathCache::gaussianElimination(RealMatrix& A, RealMatrix& B, RealMatrix& X) {
+void MathCache::gaussianElimination(DoubleMatrix& A, DoubleMatrix& B, DoubleMatrix& X) {
 
     assert(A.getNumRows() == A.getNumCols());
     
@@ -208,7 +208,7 @@ void MathCache::gaussianElimination(RealMatrix& A, RealMatrix& B, RealMatrix& X)
     popArray();
 }
 
-void MathCache::multiply(RealMatrix& A, RealMatrix& B) {
+void MathCache::multiply(DoubleMatrix& A, DoubleMatrix& B) {
 
     auto m = pushMatrix(A.getNumCols(), B.getNumRows());
     A.multiply(B, *m);
@@ -217,7 +217,7 @@ void MathCache::multiply(RealMatrix& A, RealMatrix& B) {
 }
 
 // Raise m to an integer power
-void MathCache::power(RealMatrix& m, int power) {
+void MathCache::power(DoubleMatrix& m, int power) {
 
     assert(m.getNumRows() == m.getNumCols());
     auto n = m.getNumRows();
@@ -301,7 +301,7 @@ void MathCache::power(RealMatrix& m, int power) {
     }
 }
 
-void MathCache::transpose(RealMatrix& m, RealMatrix& mT) {
+void MathCache::transpose(DoubleMatrix& m, DoubleMatrix& mT) {
 
     size_t n = m.getNumRows();
 	for (size_t i=0; i<n; i++)

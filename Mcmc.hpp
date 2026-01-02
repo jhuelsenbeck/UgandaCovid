@@ -12,7 +12,7 @@ class Mcmc {
 
     public:
                         Mcmc(void) = delete;
-                        Mcmc(int cl, int bi, int pf, int sf, int mf, std::string s, Model* m);
+                        Mcmc(RandomVariable* r, int cl, int bi, int pf, int sf, int mf, std::string s, Model* m);
         void            run(void);
     
     private:

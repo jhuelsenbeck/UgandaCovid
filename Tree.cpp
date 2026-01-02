@@ -3,8 +3,10 @@
 #include "RandomVariable.hpp"
 #include "Tree.hpp"
 #include <cmath>
+#include <cstring>
 #include <fstream>
 #include <iostream>
+#include <set>
 #include <sstream>
 
 
@@ -186,8 +188,8 @@ void Tree::clone(const Tree& t) {
         else
             p->setAncestor(nullptr);
         p->removeAllDescendants();
-        std::set<Node*>& qDesc = q->getDescendants();
-        for (Node* r : qDesc)
+        // LCRS iteration over children
+        for (Node* r = q->getFirstChild(); r != nullptr; r = r->getNextSibling())
             p->addDescendant( nodes[r->getOffset()] );
 
         if (p->getConditionalLikelihood() == nullptr)
@@ -221,8 +223,8 @@ Node* Tree::copy(Node* pPattern, std::map<Node*,Node*>& nodeMap) {
     newP->setIsTip(pPattern->getIsTip());
     newP->setAncestor( copy(pPattern->getAncestor(), nodeMap) );
 
-    std::set<Node*>& pPatternDesc = pPattern->getDescendants();
-     for (Node* d : pPatternDesc)
+    // LCRS iteration over children
+    for (Node* d = pPattern->getFirstChild(); d != nullptr; d = d->getNextSibling())
         newP->addDescendant( copy(d, nodeMap) );
 
     return newP;
@@ -267,8 +269,8 @@ void Tree::passDown(Node* p) {
 
     if (p != nullptr)
         {
-        std::set<Node*>& pDesc = p->getDescendants();
-        for (Node* d : pDesc)
+        // LCRS iteration over children
+        for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
             passDown(d);
         downPassSequence.push_back(p);
         if (p->getIsTip() == false)
@@ -284,58 +286,6 @@ void Tree::print(void) {
 void Tree::print(Node* subtree) {
 
     showNode(subtree, 0);
-}
-
-Tree* Tree::prune(int ntLower, int ntUpper) {
-
-    // calculate how many nodes are above every point in the tree
-    for (int i=0, n=(int)downPassSequence.size(); i<n; i++)
-        {
-        Node* p = downPassSequence[i];
-        if (p->getIsTip() == true)
-            {
-            p->setScratchInt(1);
-            if (p->getAreaId() == -1)
-                p->setScratchBool(true);
-            else
-                p->setScratchBool(false);
-            }
-        else
-            {
-            std::set<Node*>& pDesc = p->getDescendants();
-            int sum = 0;
-            bool hasMissing = false;
-            for (Node* d : pDesc)
-                {
-                sum += d->getScratchInt();
-                if (d->getScratchBool() == true)
-                    hasMissing = true;
-                }
-            p->setScratchInt(sum);
-            p->setScratchBool(hasMissing);
-            }
-        }
-                
-    // find first node with
-    std::vector<Node*> candidateNodes;
-    for (int i=0, n=(int)downPassSequence.size(); i<n; i++)
-        {
-        Node* p = downPassSequence[i];
-        if (p->getScratchInt() >= ntLower && p->getScratchInt() <= ntUpper /*&& p->getScratchBool() == true*/)
-            candidateNodes.push_back(p);
-        }
-        
-    // choose a candidate node at random
-    std::cout << "Number of candidate subtrees = " << candidateNodes.size() << std::endl;
-    if (candidateNodes.size() == 0)
-        Msg::error("No tree nodes were found that met your criteria. Tough luck!");
-    RandomVariable& rng = RandomVariable::getInstance();
-    Node* subtreeNode = candidateNodes[(int)(rng.uniformRv()*candidateNodes.size())];
-    
-    // make a new tree with that is a copy of this subtree
-    Tree* subtree = new Tree(subtreeNode);
-    
-    return subtree;
 }
 
 void Tree::readAhead(std::string& token, std::string& newickStr, int& i) {
@@ -380,10 +330,10 @@ void Tree::removeNodes(std::vector<Node*>& nodesToRemove) {
         {
         if (p->getIsTip() == false)
             {
-            std::set<Node*>& pDesc = p->getDescendants();
+            // LCRS iteration over children
             int numDescendantsMarked = 0;
             int numDescendantsUnmarked = 0;
-            for (Node* d : pDesc)
+            for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
                 {
                 if (d->getScratchBool() == true)
                     numDescendantsMarked++;
@@ -407,9 +357,9 @@ void Tree::removeNodes(std::vector<Node*>& nodesToRemove) {
         {
         if (p->getScratchBool() == true)
             {
-            std::set<Node*>& pDesc = p->getDescendants();
+            // LCRS iteration over children
             int numUnmarkedDescendants = 0;
-            for (Node* d : pDesc)
+            for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
                 {
                 if (d->getScratchBool() == false)
                     numUnmarkedDescendants++;
@@ -536,20 +486,20 @@ void Tree::showNode(Node* p, int indent) {
 
     if (p != nullptr)
         {
-        std::set<Node*>& pDesc = p->getDescendants();
-        
         for (int i=0; i<indent; i++)
             std::cout << " ";
         std::cout << p->getIndex();
         if (p->getAncestor() != nullptr)
             std::cout << " a_" << p->getAncestor()->getIndex() << " ( ";
-        for (Node* d : pDesc)
+        // LCRS iteration over children
+        for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
             std::cout << d->getIndex() << " ";
         std::cout << ") ";
         std::cout << p->getBrlen() << " ";
         std::cout << std::endl;
         
-        for (Node* d : pDesc)
+        // Recurse into children
+        for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
             showNode(d, indent + 3);
         }
 }
@@ -558,19 +508,20 @@ void Tree::writeTree(Node* p, std::stringstream& strm) {
 
     if (p == nullptr)
         return;
-        
-    std::set<Node*>& pDesc = p->getDescendants();
     
     if (p->getIsTip() == false)
         strm << "(";
     else
         strm << p->getName() << ":" << p->getBrlen();
     
-    for (std::set<Node*>::iterator it = pDesc.begin(); it != pDesc.end(); it++)
+    // LCRS iteration over children
+    bool first = true;
+    for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
         {
-        if (it != pDesc.begin())
+        if (!first)
             strm << ",";
-        writeTree(*it, strm);
+        first = false;
+        writeTree(d, strm);
         }
         
     if (p->getIsTip() == false)

@@ -5,10 +5,8 @@
 
 
 
-HistorySummary::HistorySummary(int ns, int ti) {
+HistorySummary::HistorySummary(int ns, int ti) : numSamples(ns), timeInterval(ti) {
 
-    numStates = ns;
-    timeInterval = ti;
     numSamples = 0;
 }
 

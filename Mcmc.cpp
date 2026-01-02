@@ -13,16 +13,10 @@
 
 
 
-Mcmc::Mcmc(int cl, int bi, int pf, int sf, int mf, std::string s, Model* m) {
+Mcmc::Mcmc(RandomVariable* r, int cl, int bi, int pf, int sf, int mf, std::string s, Model* m) :
+    rng(r), chainLength(cl), burnIn(bi), printFrequency(pf), sampleFrequency(sf), mappingFrequency(mf), 
+    parmOutFile(s), model(m) {
 
-    chainLength = cl;
-    burnIn = bi;
-    printFrequency = pf;
-    sampleFrequency = sf;
-    mappingFrequency = mf;
-    parmOutFile = s;
-    model = m;
-    rng = &RandomVariable::getInstance();
 }
 
 void Mcmc::closeOutputFiles(void) {

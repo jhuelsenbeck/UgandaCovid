@@ -1,14 +1,14 @@
 #include <cmath>
 #include "TransitionProbabilities.hpp"
 
+// Legacy functions - kept for compatibility with any code that might use them
 
-
-TransitionProbabilities::TransitionProbabilities(const TransitionProbabilities& m) : RealMatrix(m) {
+TransitionProbabilities::TransitionProbabilities(const TransitionProbabilities& m) : DoubleMatrix(m) {
 
     brlen = 0;
 }
 
-TransitionProbabilities::TransitionProbabilities(size_t d) : RealMatrix(d, d) {
+TransitionProbabilities::TransitionProbabilities(size_t d) : DoubleMatrix(d, d) {
 
     brlen = 0;
 }

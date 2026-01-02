@@ -1,25 +1,43 @@
+#include <sstream>
 #include "RandomVariable.hpp"
 
 
 
-RandomVariable::RandomVariable(void) {
+RandomVariable::RandomVariable(void) : uniformDist(0.0, 1.0), initialSeed(0) {
+
+    initializeFromRandomDevice();
+}
+
+RandomVariable::RandomVariable(uint32_t seed) : uniformDist(0.0, 1.0), initialSeed(seed) {
+
+    if (seed == 0)
+        initializeFromRandomDevice();
+    else
+        rng.seed(seed);
+}
+
+void RandomVariable::initializeFromRandomDevice(void) {
 
     std::random_device rd;
-    std::seed_seq ss = { rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd() };
-    mt.seed(ss);
-}
-
-void RandomVariable::setSeed(int32_t s) {
-
-    mt.seed(s);
-}
-
-void RandomVariable::setSeed(std::seed_seq ss) {
-
-    mt.seed(ss);
+    
+    // use multiple random_device calls for better entropy
+    std::seed_seq seq{ rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd() };
+    rng.seed(seq);
+    
+    // store a representative seed for logging (first value from rd)
+    initialSeed = rd();
 }
 
 double RandomVariable::uniformRv(void) {
 
-    return uniformDistribution(mt);
+    return uniformDist(rng);
+}
+
+void RandomVariable::setSeed(uint32_t seed) {
+
+    initialSeed = seed;
+    if (seed == 0)
+        initializeFromRandomDevice();
+    else
+        rng.seed(seed);
 }
