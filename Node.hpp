@@ -7,9 +7,6 @@ class History;
 class TransitionProbabilities;
 
 
-// -------------------------------------------------------------------
-// LCRS (Left-Child, Right-Sibling) tree representation
-// -------------------------------------------------------------------
 // Instead of std::set<Node*> descendants (40 bytes overhead per child),
 // we use two pointers per node:
 //   - firstChild: leftmost child (nullptr if leaf)
@@ -25,7 +22,6 @@ class Node {
                                     Node(void);
                                    ~Node(void);
         
-        // --- LCRS tree structure ---
         void                        addDescendant(Node* p);
         void                        removeDescendant(Node* p);
         void                        removeAllDescendants(void);
@@ -34,10 +30,8 @@ class Node {
         Node*                       getNextSibling(void) { return nextSibling; }
         int                         getNumDescendants(void);
         
-        // Legacy compatibility - returns first child
         Node*                       getFirstDescendant(void) { return firstChild; }
         
-        // --- Node properties ---
         int                         getAreaId(void) { return areaId; }
         std::string                 getAreaName(void) { return areaName; }
         bool                        getIsAreaFixed(void) { return isAreaFixed; }

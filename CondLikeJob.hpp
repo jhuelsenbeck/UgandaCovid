@@ -5,9 +5,7 @@
 #include <vector>
 #include "Threads.hpp"
 
-// -------------------------------------------------------------------
-// Platform detection for BLAS and vectorized math
-// -------------------------------------------------------------------
+// platform detection for BLAS and vectorized math
 #if defined(__APPLE__)
     #define CONDLIKE_USE_ACCELERATE 1
     #ifndef ACCELERATE_NEW_LAPACK
@@ -27,19 +25,12 @@ class Tree;
 
 
 
-// -------------------------------------------------------------------
-// CondLikeJob
-// -------------------------------------------------------------------
-// Computes conditional likelihoods for a set of nodes in the tree.
-// This is the core computation in phylogenetic likelihood calculation.
-//
-// Key optimizations:
-// - BLAS dgemv for matrix-vector multiply (P * CL)
-// - Vectorized log via vvlog (Accelerate) or manual SIMD
-// - Pre-allocated working buffers
-// - Minimized memory passes
-// -------------------------------------------------------------------
+/* Computes conditional likelihoods for a set of nodes in the tree.
 
+   - BLAS dgemv for matrix-vector multiply (P * CL)
+   - Vectorized log via vvlog (Accelerate) or manual SIMD
+   - Pre-allocated working buffers
+   - Minimized memory passes */
 class CondLikeJob : public ThreadTask {
 
     public:

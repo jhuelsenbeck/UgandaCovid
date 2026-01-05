@@ -1,21 +1,3 @@
-// -------------------------------------------------------------------
-// CondLikeJob.cpp
-// -------------------------------------------------------------------
-// Optimized conditional likelihood computation for phylogenetic trees.
-//
-// The core operation for each node is:
-//   CL_parent[i] = product over children d of: sum_j P_d[i,j] * CL_d[j]
-//
-// In log space (for numerical stability):
-//   log(CL_parent[i]) = sum over children d of: log(sum_j P_d[i,j] * CL_d[j])
-//
-// Optimizations:
-// - The inner sum is a matrix-vector product: result = P * CL
-// - Use BLAS dgemv for this operation (highly optimized, SIMD, cache-blocked)
-// - Use vvlog (Accelerate) for vectorized logarithm
-// - Pre-allocated working buffers to avoid heap allocation in hot path
-// -------------------------------------------------------------------
-
 #include <cmath>
 #include <cstring>
 #include <iostream>
