@@ -992,18 +992,17 @@ double Model::updateR(void) {
 
 double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal) {
     
-    std::vector<double> alphaForward(r[0].size());
-    for (int i=0, n=(int)alphaForward.size(); i<n; i++)
+    std::vector<double> alphaForward(oldVec.size());
+    for (size_t i=0, n=alphaForward.size(); i<n; i++)
         alphaForward[i] = oldVec[i] * alpha0 + 1.0;
         
     Probability::Dirichlet::rv(rng, alphaForward, newVec);
     Probability::Helper::normalize(newVec, minVal);
     
-    std::vector<double> alphaReverse(r[0].size());
-    for (int i=0, n=(int)alphaReverse.size(); i<n; i++)
+    std::vector<double> alphaReverse(newVec.size());
+    for (size_t i=0, n=alphaReverse.size(); i<n; i++)
         alphaReverse[i] = newVec[i] * alpha0 + 1.0;
 
-    // CHECK THIS!!!
     double lnForwardProb = Probability::Dirichlet::lnPdf(alphaReverse, oldVec) - Probability::Dirichlet::lnPdf(alphaForward, newVec);
     return lnForwardProb;
 }
@@ -1022,7 +1021,7 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
         indices.insert(idx);
         }
     
-    // fill in old values
+    // fill in old values for the selected indices plus the "remainder" element
     std::vector<double> oldValues(k+1);
     double sum = 0.0;
     int i = 0;
@@ -1032,30 +1031,41 @@ double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& ne
         oldValues[i++] = x;
         sum += x;
         }
-    oldValues[i] = 1.0 - sum;
+    oldValues[i] = 1.0 - sum;  // remainder element
     
+    // construct the forward Dirichlet parameters
     std::vector<double> alphaForward(k + 1);
-    for (int i=0, n=(int)alphaForward.size(); i<n; i++)
-        alphaForward[i] = oldValues[i] * alpha0 + 1.0;
+    for (size_t j=0, m=alphaForward.size(); j<m; j++)
+        alphaForward[j] = oldValues[j] * alpha0 + 1.0;
         
+    // draw new values from Dirichlet
     std::vector<double> newValues(k+1);
     Probability::Dirichlet::rv(rng, alphaForward, newValues);
-    Probability::Helper::normalize(newVec, minVal);
     
+    // FIX 1: normalize newValues (the k+1 element vector), NOT newVec (the full n-element vector)
+    Probability::Helper::normalize(newValues, minVal);
+    
+    // construct the reverse Dirichlet parameters
     std::vector<double> alphaReverse(k + 1);
-    for (int i=0, n=(int)alphaReverse.size(); i<n; i++)
-        alphaReverse[i] = newValues[i] * alpha0 + 1.0;
+    for (size_t j=0, m=alphaReverse.size(); j<m; j++)
+        alphaReverse[j] = newValues[j] * alpha0 + 1.0;
         
-    // fill in the vector from the updated (newValues) vector
+    // fill in the full newVec from the updated (newValues) vector
+    // The non-selected elements are scaled by the ratio of remainders
     double factor = newValues[k] / oldValues[k];
-    for (int i=0, n=(int)newVec.size(); i<n; i++)
-        newVec[i] *= factor;
+    
+    // FIX 2: Initialize newVec from oldVec explicitly, then scale
+    for (size_t j=0, m=newVec.size(); j<m; j++)
+        newVec[j] = oldVec[j] * factor;
+    
+    // overwrite the selected indices with their new values
     i = 0;
-    for (int idx : indices)
+    for (size_t idx : indices)
         newVec[idx] = newValues[i++];
 
-    // CHECK THIS!!!
-    double lnProposalProb = Probability::Dirichlet::lnPdf(alphaReverse, oldVec) - Probability::Dirichlet::lnPdf(alphaForward, newVec);
+    // FIX 3: Compute Hastings ratio using oldValues and newValues (both size k+1),
+    // NOT oldVec and newVec (which are size n and would cause dimension mismatch)
+    double lnProposalProb = Probability::Dirichlet::lnPdf(alphaReverse, oldValues) - Probability::Dirichlet::lnPdf(alphaForward, newValues);
     lnProposalProb += (n - k - 1) * log(factor);
     return lnProposalProb;
 }

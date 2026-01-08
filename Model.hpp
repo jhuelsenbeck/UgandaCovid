@@ -66,22 +66,22 @@ class Model {
         Tree*                           tree;
         MetaData*                       metaData;
         RandomVariable*                 rng;
-        int                             activeRateMatrix;
         RateMatrix*                     q[2];
         RateMatrix*                     uniformizedRateMatrix;
-        std::vector<RateMatrix*>        matrixPowers;
         TransitionProbabilitiesMngr*    tiMngr;
         ThreadPool*                     threadPool;
+        size_t                          numStates;
         double*                         condLikes;
+        double**                        intervalDwellTimes;
+        int***                          intervalTransitions;
         double                          substitutionRate[2];
         std::vector<double>             pi[2];
         std::vector<double>             r[2];
-        size_t                          numStates;
-        std::string                     updateType;
+        std::vector<RateMatrix*>        matrixPowers;
+        int                             activeRateMatrix;
         int                             numIntervals;
-        double**                        intervalDwellTimes;
-        int***                          intervalTransitions;
         double                          nFactorial[MAX_NUM_CHANGES];
+        std::string                     updateType;
 };
 
 
