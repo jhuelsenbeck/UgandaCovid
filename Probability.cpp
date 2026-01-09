@@ -509,6 +509,18 @@ double Helper::gamma(double x) noexcept {
     return std::tgamma(x);
 }
 
+bool Helper::isValidSimplex(const std::vector<double>& x, double eps) {
+
+    double s = 0.0;
+    for (size_t i=0; i<x.size(); i++)
+        {
+        if (!(x[i] > 0.0))
+            return false;
+        s += x[i];
+        }
+    return std::fabs(s - 1.0) < eps;
+}
+
 double Helper::lnFactorial(int n) noexcept {
 
     if (n <= 1)

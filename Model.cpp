@@ -3,6 +3,7 @@
 #include <cstring>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include "CondLikeJobMngr.hpp"
 #include "History.hpp"
 #include "MetaData.hpp"
@@ -373,6 +374,18 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
     // set up the transition probabilities
     tiMngr = new TransitionProbabilitiesMngr(this, tree, numStates, threadPool);
     tiMngr->updateTransitionProbabilities();
+}
+
+bool Model::isValidSimplex(const std::vector<double>& x, double eps) {
+
+    double s = 0.0;
+    for (size_t i=0; i<x.size(); i++)
+        {
+        if (!(x[i] > 0.0))
+            return false;
+        s += x[i];
+        }
+    return std::fabs(s - 1.0) < eps;
 }
 
 #if 1
@@ -971,23 +984,223 @@ double Model::updateSubstitutionRate(void) {
 
     updateType = "colonization rate";
     double oldValue = substitutionRate[0];
-    double tuning = 0.01;
+    double tuning = 0.005;
     double factor = exp((rng->uniformRv()-0.5)*tuning);
     double newValue = oldValue * factor;
     substitutionRate[1] = newValue;
     return log(newValue) - log(oldValue);
 }
 
+// --------------------
+// ALR MVN simplex kernel
+// --------------------
+
+static inline double randStdNormal_BoxMuller(RandomVariable* rng) {
+
+    // one-shot Box–Muller using rng->uniformRv()
+    double u1 = rng->uniformRv();
+    double u2 = rng->uniformRv();
+
+    if (u1 <= 0.0)
+        u1 = std::numeric_limits<double>::min();
+
+    const double twoPi = 6.283185307179586476925286766559;
+    return std::sqrt(-2.0 * std::log(u1)) * std::cos(twoPi * u2);
+}
+
+static inline double sumLogVec(const std::vector<double>& x) {
+
+    double s = 0.0;
+    for (size_t i=0; i<x.size(); i++)
+        {
+        if (x[i] <= 0.0)
+            return -std::numeric_limits<double>::infinity();
+        s += std::log(x[i]);
+        }
+    return s;
+}
+
+static inline void alrForward(const std::vector<double>& x, std::vector<double>& y) {
+
+    const size_t K = x.size();
+    y.resize(K - 1);
+
+    double xK = x[K-1];
+    for (size_t i=0; i<K-1; i++)
+        y[i] = std::log(x[i] / xK);
+}
+
+static inline void alrInverse(const std::vector<double>& y, std::vector<double>& x) {
+
+    const size_t d = y.size();
+    const size_t K = d + 1;
+
+    // stable inverse: subtract max
+    double m = y[0];
+    for (size_t i=1; i<d; i++)
+        {
+        if (y[i] > m)
+            m = y[i];
+        }
+
+    std::vector<double> e(d, 0.0);
+    double sumE = 0.0;
+    for (size_t i=0; i<d; i++)
+        {
+        e[i] = std::exp(y[i] - m);
+        sumE += e[i];
+        }
+
+    double expNegM = std::exp(-m);
+    double denom = expNegM + sumE;
+
+    x.assign(K, 0.0);
+    for (size_t i=0; i<d; i++)
+        x[i] = e[i] / denom;
+    x[K-1] = expNegM / denom;
+}
+
+double Model::updateSimplexALRMVN(std::vector<double>& oldVec, std::vector<double>& newVec, double sigma, double minVal) {
+
+    const size_t K = oldVec.size();
+    if (oldVec.size() != newVec.size())
+        Msg::error("updateSimplexALRMVN: unequal vector lengths");
+    if (K < 2)
+        Msg::error("updateSimplexALRMVN: K < 2");
+    if (!(sigma > 0.0))
+        Msg::error("updateSimplexALRMVN: sigma <= 0");
+    if (!isValidSimplex(oldVec, 1e-10))
+        Msg::error("updateSimplexALRMVN: oldVec not valid simplex");
+
+    // forward ALR transform
+    std::vector<double> y;
+    alrForward(oldVec, y);
+
+    // MVN random walk in ALR space (isotropic sigma^2 I)
+    for (size_t i=0; i<y.size(); i++)
+        y[i] += sigma * randStdNormal_BoxMuller(rng);
+
+    // inverse transform
+    alrInverse(y, newVec);
+
+    // For this kernel, do NOT "normalize-with-floor" (that changes the mapping).
+    // Instead, hard-reject if any component violates minVal.
+    if (minVal > 0.0)
+        {
+        for (size_t i=0; i<newVec.size(); i++)
+            {
+            if (newVec[i] < minVal)
+                {
+                newVec = oldVec;
+                return -std::numeric_limits<double>::infinity();
+                }
+            }
+        }
+
+    if (!isValidSimplex(newVec, 1e-10))
+        Msg::error("updateSimplexALRMVN: newVec not valid simplex");
+
+    // Hastings/Jacobian correction:
+    // proposal symmetric in ALR space => only Jacobian ratio remains
+    return sumLogVec(newVec) - sumLogVec(oldVec);
+}
+
 double Model::updatePi(void) {
 
-    updateType = "equilibrium frequencies";
-    return updateSimplex(pi[0], pi[1], 10000.0, 1, 0.001);
+    double minVal = 0.00001;
+
+    // Mixture of simplex kernels:
+    //  - ALR MVN: good for informative posteriors (tight, correlated)
+    //  - Dirichlet subset move (k=1): safe local exploration
+    //  - Mass transfer: cheap polishing move
+    double u = rng->uniformRv();
+    if (u < 0.34)
+        {
+        // tune sigma to get reasonable acceptance (often ~0.05–0.20)
+        updateType = "equilibrium frequencies: ALR MVN";
+       return updateSimplexALRMVN(pi[0], pi[1], 0.001, minVal);
+        }
+    else if (u < 0.67)
+        {
+        updateType = "equilibrium frequencies: Dirichlet";
+        return updateSimplex(pi[0], pi[1], 20000.0, 1, minVal);
+        }
+    else
+        {
+        updateType = "equilibrium frequencies: mass transfer";
+        return updateSimplexTransfer(pi[0], pi[1], 300.0, minVal);
+        }
 }
 
 double Model::updateR(void) {
 
     updateType = "exchangeability rates";
-    return updateSimplex(r[0], r[1], 5000.0, 1, 0.00001);
+    return updateSimplex(r[0], r[1], 10000.0, 1, 0.00001);
+}
+
+double Model::updateSimplexTransfer(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal) {
+
+    const size_t K = oldVec.size();
+    if (oldVec.size() != newVec.size())
+        Msg::error("proposeSimplex_MassTransfer: unequal vector lengths");
+    if (K < 2)
+        Msg::error("proposeSimplex_MassTransfer: K < 2");
+    if (!(alpha0 > 0.0))
+        Msg::error("proposeSimplex_MassTransfer: alpha0 <= 0");
+    if (!isValidSimplex(oldVec, 1e-10))
+        Msg::error("proposeSimplex_MassTransfer: x_curr not valid simplex");
+
+    // pick a random pair (i,j), i<j
+    size_t i = (size_t)std::floor(rng->uniformRv() * (double)K);
+    size_t j = (size_t)std::floor(rng->uniformRv() * (double)(K-1));
+    if (j >= i)
+        j += 1;
+    if (j < i)
+        std::swap(i, j);
+
+    double xi = oldVec[i];
+    double xj = oldVec[j];
+    double s  = xi + xj;
+
+    if (!(s > 0.0))
+        Msg::error("proposeSimplex_MassTransfer: s <= 0 (should not happen)");
+
+    double u = xi / s;
+
+    // Beta parameters centered at u
+    // To avoid a,b becoming too tiny (can cause numerical ugliness), clamp u away from 0/1 a hair.
+    const double eps = 1e-15;
+    double uClamped = std::min(1.0 - eps, std::max(eps, u));
+
+    double a = alpha0 * uClamped;
+    double b = alpha0 * (1.0 - uClamped);
+
+    double uProp = Probability::Beta::rv(rng, a, b);
+
+    // construct proposal
+    newVec[i] = s * uProp;
+    newVec[j] = s * (1.0 - uProp);
+
+    // (tiny numerical safety) renormalize in case of roundoff
+    Probability::Helper::normalize(newVec, minVal);
+
+    // reverse proposal is Beta centered at u_prop (from the proposed state)
+    double uRev = newVec[i] / (newVec[i] + newVec[j]); // should equal u_prop up to rounding
+    double uRevClamped = std::min(1.0 - eps, std::max(eps, uRev));
+
+    double aRev = alpha0 * uRevClamped;
+    double bRev = alpha0 * (1.0 - uRevClamped);
+
+    // Hastings ratio (reverse - forward)
+    // Forward density: u_prop ~ Beta(a,b)
+    // Reverse density: u ~ Beta(a_rev, b_rev)
+    double log_q_fwd = Probability::Beta::lnPdf(a, b, uProp);
+    double log_q_rev = Probability::Beta::lnPdf(aRev, bRev, u);
+    double lnHastings = log_q_rev - log_q_fwd;
+
+    if (!isValidSimplex(newVec, 1e-10))
+        Msg::error("proposeSimplex_MassTransfer: x_prop invalid");
+    return lnHastings;
 }
 
 double Model::updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal) {

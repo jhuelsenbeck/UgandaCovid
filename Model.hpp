@@ -51,6 +51,7 @@ class Model {
         void                            initializeHistories(void);
         void                            initializeMatrixPowers(size_t num);
         void                            initializeParameters(Tree* tp, RateMatrix* m);
+        bool                            isValidSimplex(const std::vector<double>& x, double eps=1e-14);
         void                            printMatrixPowers(void);
         std::vector<Samples*>           readParameterFile(std::string fn);
         int                             sampleHistoriesUsingRejectionSamplign(RandomVariable* rng);
@@ -60,8 +61,10 @@ class Model {
         double                          updatePi(void);
         double                          updateR(void);
         void                            updateRateMatrix(void);
+        double                          updateSimplexTransfer(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal);
         double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal);
         double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, size_t k, double minVal);
+        double                          updateSimplexALRMVN(std::vector<double>& oldVec, std::vector<double>& newVec, double sigma, double minVal);
         CondLikeJobMngr*                clManager;
         Tree*                           tree;
         MetaData*                       metaData;

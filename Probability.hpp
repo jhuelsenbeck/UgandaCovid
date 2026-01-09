@@ -96,6 +96,7 @@ namespace Probability {
         double  lnGammacor(double x) noexcept;
         double  incompleteBeta(double a, double b, double x) noexcept;
         double  incompleteGamma(double x, double alpha, double LnGamma_alpha) noexcept;
+        bool    isValidSimplex(const std::vector<double>& x, double eps);
         void    normalize(std::vector<double>& vec);
         void    normalize(std::vector<double>& vec, double min);
         double  pointNormal(double prob) noexcept;

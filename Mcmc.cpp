@@ -68,17 +68,7 @@ void Mcmc::run(void) {
         bool accept = false;
         if (log(rng->uniformRv()) < lnR)
           accept = true;
-              
-        // print (part 2)
-        if (n % printFrequency == 0)
-            {
-            std::cout << ((accept == true) ? "Accepted " : "Rejected ") << "update of " << updateType;
-            std::cout << std::scientific;
-            std::cout << " " << model->getSubstitutionRate();
-            std::cout << std::fixed;
-            std::cout << std::endl;
-            }
-        
+                      
         // adjust the state accordingly
          if (accept == true)
             {
@@ -93,6 +83,16 @@ void Mcmc::run(void) {
             info.reject(updateType);
             }
         
+        // print (part 2)
+        if (n % printFrequency == 0)
+            {
+            std::cout << ((accept == true) ? "Accepted " : "Rejected ") << "update of " << updateType;
+            std::cout << std::fixed << std::setprecision(10);
+            std::cout << " " << model->getSubstitutionRate();
+            std::cout << std::fixed;
+            std::cout << std::endl;
+            }
+
         // print the current state of the chain to a file
         if (n == 1 || n % sampleFrequency == 0)
             print(n, curLnL);
