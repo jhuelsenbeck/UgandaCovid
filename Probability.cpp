@@ -732,6 +732,7 @@ void Helper::normalize(std::vector<double>& vec) {
         vec[i] /= sum;
 }
 
+#if 0
 void Helper::normalize(std::vector<double>& vec, double min) {
 
     int numTooSmall = 0;
@@ -754,6 +755,71 @@ void Helper::normalize(std::vector<double>& vec, double min) {
             vec[i] *= factor;
         }
 }
+#else
+void Helper::normalize(std::vector<double>& vec, double min) {
+
+    size_t n = vec.size();
+    
+    // Ensure the constraint is satisfiable
+    if (min * n >= 1.0) 
+        {
+        double val = 1.0 / n;
+        for (size_t i = 0; i < n; i++)
+            vec[i] = val;
+        return;
+        }
+
+    // Iterative approach: scaling may create new violations
+    for (int iter = 0; iter < 10; iter++)  // bounded iterations
+        {
+        int numTooSmall = 0;
+        double sum = 0.0;
+        
+        for (size_t i = 0; i < n; i++) 
+            {
+            if (vec[i] < min)
+                numTooSmall++;
+            else
+                sum += vec[i];
+            }
+        
+        // All values already valid - just normalize
+        if (numTooSmall == 0) 
+            {
+            for (size_t i = 0; i < n; i++)
+                vec[i] /= sum;
+            return;
+            }
+        
+        // All values below minimum - fall back to uniform
+        if (sum <= 0.0) 
+            {
+            double val = 1.0 / n;
+            for (size_t i = 0; i < n; i++)
+                vec[i] = val;
+            return;
+            }
+        
+        double factor = (1.0 - numTooSmall * min) / sum;
+        
+        bool allValid = true;
+        for (size_t i = 0; i < n; i++) 
+            {
+            if (vec[i] < min)
+                vec[i] = min;
+            else 
+                {
+                vec[i] *= factor;
+                if (vec[i] < min) 
+                    allValid = false;  // need another pass
+                }
+            }
+        
+        if (allValid)
+            return;
+        }
+}
+#endif
 
 double Helper::pointNormal(double prob) noexcept {
 
