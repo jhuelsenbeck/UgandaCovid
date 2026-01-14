@@ -105,7 +105,6 @@ CondLikeJobMngr::CondLikeJobMngr(Tree* t, ThreadPool* tp, int na) :
     std::cout << "   * Initializing conditional likelihood jobs" << std::endl;
     std::cout << "     Divided tree into " << jobs.size() << " regions for parallelization" << std::endl;
     std::cout << "     " << numZeroDependencyJobs << " jobs/regions have no dependencies" << std::endl;
-    //print();
 }
 
 CondLikeJobMngr::~CondLikeJobMngr(void) {
@@ -179,15 +178,11 @@ void CondLikeJobMngr::jobSizeDistribution(void) {
 void CondLikeJobMngr::print(void) {
 
     for (std::vector<CondLikeJob*>::iterator it = jobs.begin(); it != jobs.end(); it++)
-        {
         (*it)->print();
-        }
 }
 
 void CondLikeJobMngr::zeroResolvedDependencies(void) {
 
     for (std::vector<CondLikeJob*>::iterator it = jobs.begin(); it != jobs.end(); it++)
-        {
         (*it)->setNumResolvedDependencies(0);
-        }
 }

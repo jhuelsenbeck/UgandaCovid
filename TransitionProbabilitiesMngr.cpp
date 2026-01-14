@@ -1,27 +1,21 @@
+#include <limits>
 #include "GPUMatrixExponentialBatch.hpp"
 #include "Model.hpp"
 #include "Msg.hpp"
 #include "Node.hpp"
 #include "RateMatrix.hpp"
 #include "Threads.hpp"
-#include "TransitionProbabilities.hpp"
 #include "TransitionProbabilitiesMngr.hpp"
 #include "Tree.hpp"
+#include "UserSettings.hpp"
 
 #define MIN_BRLEN 10e-5
 
 
 
-TransitionProbabilitiesMngr::TransitionProbabilitiesMngr(Model* m, Tree* t, size_t d, ThreadPool* tp) {
+TransitionProbabilitiesMngr::TransitionProbabilitiesMngr(Model* m, Tree* t, size_t d, ThreadPool* tp, size_t ugi) :
+    modelPtr(m), dim(d), threadPool(tp), ugandaIdx(ugi) {
 
-    // pointer to the model object
-    modelPtr = m;
-    
-    threadPool = tp;
-    
-    // set the dimensions of the rate matrices
-    dim = d;
-    
     // Initialize GPU batcher singleton
     gpuBatcher = &GPUMatrixExponentialBatch::getInstance();
     
@@ -53,6 +47,21 @@ TransitionProbabilitiesMngr::TransitionProbabilitiesMngr(Model* m, Tree* t, size
     // Pre-allocate vectors for batch operations
     batchBranchLengths.reserve(tiMap.size());
     batchOutputs.reserve(tiMap.size());
+
+    // set the transition-probability model from user settings
+    UserSettings& settings = UserSettings::getUserSettings();
+    switch (settings.getLikelihoodModel())
+        {
+        case LikelihoodModel::JC69:       modelType = jc69;       break;
+        case LikelihoodModel::F81:        modelType = f81;        break;
+        case LikelihoodModel::CUSTOM_F81: modelType = custom_f81; break;
+        case LikelihoodModel::GTR:        modelType = gtr;        break;
+        }
+
+    // preallocate the transition probability tasks for threaded calculations
+    tasks = new TransitionProbabilitiesTask[tiMap.size()];
+    for (size_t i=0; i<tiMap.size(); i++)
+        tasks[i].setModelType(modelType);
     
     std::cout << "     Tree has " << tiMap.size() << " unique branch lengths" << std::endl;
     std::cout << "     GPU batch: " << (gpuBatcher->isAvailable() ? gpuBatcher->getDeviceName() : "Not available") << std::endl;
@@ -66,6 +75,7 @@ TransitionProbabilitiesMngr::~TransitionProbabilitiesMngr(void) {
         delete ti;
         }
     tiMap.clear();
+    delete [] tasks;
 }
 
 void TransitionProbabilitiesMngr::checkTiProbs(void) {
@@ -123,11 +133,24 @@ void TransitionProbabilitiesMngr::printMap(void) {
 void TransitionProbabilitiesMngr::updateTransitionProbabilities(void) {
 
     RateMatrix* Q = modelPtr->getRateMatrix();
+
+    // For JC69/F81/custom_F81 we use the fast analytic forms (threaded tasks).
+    // The batched/GPU matrix-exponential path is only relevant for the general (GTR) model.
+    if (modelType != gtr)
+        {
+        updateThreaded(Q);
+        return;
+        }
+
     size_t numMatrices = tiMap.size();
-    
+
     // Select compute path based on backend setting
     bool useBatched = false;
-    
+
+    // Analytic models never use the matrix-exponential backends
+    if (modelType != gtr)
+        useBatched = false;
+
     switch (computeBackend)
         {
         case TiProbComputeBackend::Auto:
@@ -140,7 +163,7 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(void) {
             useBatched = true;
             break;
         }
-    
+        
     if (useBatched)
         updateBatched(Q);
     else
@@ -151,48 +174,51 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(void) {
 #   endif
 }
 
-// -------------------------------------------------------------------
-// Original threaded approach: one task per branch length
-// Each task creates exp(Q * brlen) independently
-// -------------------------------------------------------------------
-
+/* Original threaded approach: one task per branch length
+ Each task creates exp(Q * brlen) independently */
 void TransitionProbabilitiesMngr::updateThreaded(DoubleMatrix* Q) {
 
-    auto tasks = new TransitionProbabilitiesTask[tiMap.size()];
-    auto task = tasks;
-    
-    int id = 0;
+    TransitionProbabilitiesTask* task = tasks;
+
+    // For analytic models we need the current stationary frequencies.
+    // (For GTR this pointer is ignored by TransitionProbabilitiesTask.)
+    const std::vector<double>& pi = modelPtr->getPi();
+    const std::vector<double>& exch = modelPtr->getR();
+    double kappa = modelPtr->getKappa();
     double r = modelPtr->getSubstitutionRate();
+
+    int id = 0;
     for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
         {
         double v = (double)it->first.first * r;
         if (it->first.first == 0)
             v = MIN_BRLEN;
         it->second->setCalculatedBrlen(v);
-        task->init(id, (int)dim, v, (DoubleMatrix*)Q, it->second);
+
+        task->init(id, (int)dim, v, (DoubleMatrix*)Q, it->second, &pi, &exch, kappa, ugandaIdx);
         threadPool->pushTask(task);
         ++task;
         ++id;
         }
-        
+
     threadPool->wait();
-    delete [] tasks;
 }
 
-// -------------------------------------------------------------------
-// Batched approach: all branch lengths processed together
-// Uses GPUMatrixExponentialBatch which:
-//   - Shares the same Q matrix across all computations
-//   - Uses static buffer pools to avoid heap fragmentation
-//   - Leverages ThreadPool for parallel Padé[13/13] computation
-//   - Each worker thread has its own working buffers
-//
-// This is more efficient than the threaded approach when:
-//   - There are many unique branch lengths (>= batchThreshold)
-//   - The rate matrix Q is large (>= 64x64)
-// -------------------------------------------------------------------
+/* Batched approach: all branch lengths processed together
+   Uses GPUMatrixExponentialBatch which:
+     - Shares the same Q matrix across all computations
+     - Uses static buffer pools to avoid heap fragmentation
+     - Leverages ThreadPool for parallel Padé[13/13] computation
+     - Each worker thread has its own working buffers
+
+   This is more efficient than the threaded approach when:
+     - There are many unique branch lengths (>= batchThreshold)
+     - The rate matrix Q is large (>= 64x64)*/
 
 void TransitionProbabilitiesMngr::updateBatched(DoubleMatrix* Q) {
+
+    if (modelType != gtr)
+        Msg::error("Batched transition-probability computation is only valid for gtr");
 
     // Clear and populate the batch vectors
     batchBranchLengths.clear();

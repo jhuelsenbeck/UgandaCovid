@@ -197,16 +197,16 @@ void GPUMatrixExponentialBatch::initialize(void) {
     // In the portable version, we use optimized CPU computation
     // via BLAS/LAPACK (Accelerate on macOS, OpenBLAS on Linux)
     
-#if defined(__APPLE__)
+#   if defined(__APPLE__)
     gpuAvailable = true;  // Accelerate is always available on macOS
     strncpy(deviceName, "Apple Accelerate (CPU)", 255);
-#elif defined(USE_OPENBLAS) || defined(USE_CBLAS)
+#   elif defined(USE_OPENBLAS) || defined(USE_CBLAS)
     gpuAvailable = true;
     strncpy(deviceName, "OpenBLAS (CPU)", 255);
-#else
+#   else
     gpuAvailable = true;
     strncpy(deviceName, "Portable (CPU)", 255);
-#endif
+#   endif
     
     deviceName[255] = '\0';
     

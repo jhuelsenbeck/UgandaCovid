@@ -1,6 +1,28 @@
 #include <cmath>
 #include "TransitionProbabilities.hpp"
 
+// TransitionProbabilitiesTask::init() - defined here to ensure single definition (ODR compliance)
+void TransitionProbabilitiesTask::init(int i,
+                                        int n,
+                                        double v,
+                                        DoubleMatrix* q,
+                                        DoubleMatrix* p,
+                                        const std::vector<double>* piPtr,
+                                        const std::vector<double>* rPtr,
+                                        const double kappa,
+                                        size_t ugi) {
+
+    taskId     = i;
+    numStates  = n;
+    brlen      = v;
+    Q          = q;
+    P          = p;
+    pi         = piPtr;
+    r          = rPtr;
+    k          = kappa;
+    ugandaIdx  = ugi;
+}
+
 // Legacy functions - kept for compatibility with any code that might use them
 
 TransitionProbabilities::TransitionProbabilities(const TransitionProbabilities& m) : DoubleMatrix(m) {

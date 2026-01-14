@@ -33,8 +33,30 @@ Model::Model(RandomVariable* r, Tree* tp, MetaData* md, ThreadPool* thp, CondLik
     numStates = Q->getNumRows();
     updateType = "";
     
+    ugandaIdx = -1;
+    for (size_t i=0; i<numStates; i++)
+        {
+        if (md->getAreas()[i] == "Uganda")
+            {
+            ugandaIdx = i;
+            break;
+            }
+        }
+    if (ugandaIdx == -1)
+        Msg::error("Could not find the Uganda index");
+    
     // check that we can use the SSE instruction set
     std::cout << "     Model has " << numStates << " areas (" << numStates << " X " << numStates << ")" << std::endl;
+
+    // set the model type
+    UserSettings& settings = UserSettings::getUserSettings();
+    switch (settings.getLikelihoodModel())
+        {
+        case LikelihoodModel::JC69:       modelType = jc69;       break;
+        case LikelihoodModel::F81:        modelType = f81;        break;
+        case LikelihoodModel::CUSTOM_F81: modelType = custom_f81; break;
+        case LikelihoodModel::GTR:        modelType = gtr;        break;
+        }
 
     // set up the model parameters
     initializeParameters(tp, Q);
@@ -79,6 +101,7 @@ void Model::accept(void) {
     substitutionRate[0] = substitutionRate[1];
     pi[0] = pi[1];
     r[0] = r[1];
+    kappa[0] = kappa[1];
 }
 
 void Model::assignNodeStates(RandomVariable* rng) {
@@ -346,7 +369,7 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
     Probability::Helper::normalize(pi[0], 0.001);
     pi[1] = pi[0];
     
-    // set up substitution rate
+    // set up exchangeability parameters
     r[0].resize(numStates*(numStates-1)/2);
     if (foundStartingValues == true)
         r[0] = sampleR;
@@ -360,19 +383,23 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
     Probability::Helper::normalize(r[0], 0.00001);
     r[1] = r[0];
     
+    // set up Uganda bias factor
+    kappa[0] = 1.0;
+    kappa[1] = kappa[0];
+    
     // set up the rate matrix and tree
     tree = tp;
     activeRateMatrix = 0;
     q[0] = m;
     q[1] = new RateMatrix(*m);
-    q[0]->set(&pi[0][0], &r[0][0]);
+    q[0]->set(modelType, &pi[0][0], &r[0][0], kappa[0]);
     (*q[1]) = (*q[0]);
     //std::cout << *q[0] << std::endl;
     //std::cout << *q[1] << std::endl;
     uniformizedRateMatrix = new RateMatrix(*m);
     
     // set up the transition probabilities
-    tiMngr = new TransitionProbabilitiesMngr(this, tree, numStates, threadPool);
+    tiMngr = new TransitionProbabilitiesMngr(this, tree, numStates, threadPool, ugandaIdx);
     tiMngr->updateTransitionProbabilities();
 }
 
@@ -527,6 +554,8 @@ void Model::map(void) {
 
     // sample history for each branch
     //sampleHistoriesUsingRejectionSamplign(&rng);
+    if (modelType != gtr)
+        updateRateMatrix();
     int numChanges = sampleHistoriesUsingUniformization(rng);
     std::cout << "           Number of changes = " << numChanges << std::endl;
 }
@@ -593,6 +622,7 @@ void Model::reject(void) {
     substitutionRate[1] = substitutionRate[0];
     pi[1] = pi[0];
     r[1] = r[0];
+    kappa[1] = kappa[0];
     switchActiveRateMatrix();
 }
 
@@ -949,25 +979,51 @@ void Model::switchActiveRateMatrix(void) {
 
 double Model::update(void) {
 
-    double u = rng->uniformRv();
-    
     double lnProposalProb = 0.0;
-    if (u <= 0.33)
+
+    if (modelType == jc69)
         {
+        // JC69
         lnProposalProb = updateSubstitutionRate();
         }
-    else if (u > 0.33 && u <= 1.0)
+    else if (modelType == f81)
         {
-        lnProposalProb = updatePi();
-        updateRateMatrix();
+        // F81
+        double u = rng->uniformRv();
+        if (u < 0.5)
+            lnProposalProb = updateSubstitutionRate();
+        else 
+            lnProposalProb = updatePi();
         }
-    else
+    else if (modelType == custom_f81)
         {
-        Msg::error("We should not be proposing changes to the exchangeability parameters");
-        lnProposalProb = updateR();
-        updateRateMatrix();
+        // Uganda biased F81
+        double u = rng->uniformRv();
+        if (u < 0.333)
+            lnProposalProb = updateSubstitutionRate();
+        else if (u < 0.666)
+            lnProposalProb = updatePi();
+        else 
+            lnProposalProb = updateKappa();
         }
-        
+    else 
+        {
+        // GTR model
+        double u = rng->uniformRv();
+        if (u < 0.333)
+            lnProposalProb = updateSubstitutionRate();
+        else if (u < 0.666)
+            {
+            lnProposalProb = updatePi();
+            updateRateMatrix();
+            }
+        else 
+            {
+            lnProposalProb = updateR();
+            updateRateMatrix();
+            }
+        }
+    
     // update the transition probabilities
     tiMngr->updateTransitionProbabilities();
         
@@ -977,7 +1033,7 @@ double Model::update(void) {
 void Model::updateRateMatrix(void) {
 
     switchActiveRateMatrix();
-    q[activeRateMatrix]->set(&pi[1][0], &r[1][0]);
+    q[activeRateMatrix]->set(modelType, &pi[1][0], &r[1][0], kappa[1]);
 }
 
 double Model::updateSubstitutionRate(void) {
@@ -988,6 +1044,17 @@ double Model::updateSubstitutionRate(void) {
     double factor = exp((rng->uniformRv()-0.5)*tuning);
     double newValue = oldValue * factor;
     substitutionRate[1] = newValue;
+    return log(newValue) - log(oldValue);
+}
+
+double Model::updateKappa(void) {
+
+    updateType = "Uganda migration bias";
+    double oldValue = kappa[0];
+    double tuning = 0.005;
+    double factor = exp((rng->uniformRv()-0.5)*tuning);
+    double newValue = oldValue * factor;
+    kappa[1] = newValue;
     return log(newValue) - log(oldValue);
 }
 
@@ -1105,6 +1172,111 @@ double Model::updateSimplexALRMVN(std::vector<double>& oldVec, std::vector<doubl
     return sumLogVec(newVec) - sumLogVec(oldVec);
 }
 
+double  Model::updateSimplexALRMVN(const std::vector<double>& oldVec, std::vector<double>& newVec, double sigma, double minVal, size_t blockSize) {
+
+    const size_t K = oldVec.size();
+    if (oldVec.size() != newVec.size())
+        Msg::error("updateSimplexALRMVN_blocked: unequal vector lengths");
+    if (K < 2)
+        Msg::error("updateSimplexALRMVN_blocked: K < 2");
+    if (!(sigma > 0.0))
+        Msg::error("updateSimplexALRMVN_blocked: sigma <= 0");
+    if (blockSize < 2)
+        Msg::error("updateSimplexALRMVN_blocked: blockSize < 2");
+    if (blockSize > K)
+        Msg::error("updateSimplexALRMVN_blocked: blockSize > K");
+    if (!isValidSimplex(oldVec, 1e-10))
+        Msg::error("updateSimplexALRMVN_blocked: oldVec not valid simplex");
+
+    // default: start with no change
+    //newVec = oldVec; // not needed because both vectors start every MCMC cycle identical
+
+    // choose a random block of indices 
+    // We want a set of distinct indices of size blockSize (Fisher-Yates partial shuffle)
+    std::vector<size_t> idx(K);
+    for (size_t i=0; i<K; i++)
+        idx[i] = i;
+
+    for (size_t i=0; i<blockSize; i++)
+        {
+        size_t j = i + (size_t)std::floor( rng->uniformRv() * (double)(K - i) );
+        if (j >= K)
+            j = K - 1;
+        std::swap(idx[i], idx[j]);
+        }
+
+    idx.resize(blockSize);
+
+    // extract block mass and block proportions
+    double blockMass = 0.0;
+    for (size_t t=0; t<blockSize; t++)
+        blockMass += oldVec[idx[t]];
+
+    if (!(blockMass > 0.0))
+        {
+        // should never happen for a valid simplex, but be safe
+        return -1e300;
+        }
+
+    // proportions p live on an m-simplex (m = blockSize)
+    std::vector<double> p_old(blockSize, 0.0);
+    for (size_t t=0; t<blockSize; t++)
+        p_old[t] = oldVec[idx[t]] / blockMass;
+
+    // if you enforce a global minVal, then inside the block the implied minimum on p is minVal / blockMass.
+    double pMin = 0.0;
+    if (minVal > 0.0)
+        pMin = minVal / blockMass;
+
+    // propose new block proportions with your existing ALR-MVN code
+    std::vector<double> p_new(blockSize, 0.0);
+
+    /* This returns the Hastings correction for the move in p-space.
+       Because x_block = blockMass * p, the constant blockMass cancels in Jacobians and in proposal densities.
+       So the Hastings correction for the overall x-move is IDENTICAL to the one for p. */
+    double logH = updateSimplexALRMVN(p_old, p_new, sigma, pMin);
+
+    // if updateALRMVN hard-rejected (returns LOG_ZERO), propagate rejection.
+    if (logH <= -1e250)
+        {
+        newVec = oldVec;
+        return logH;
+        }
+
+    // write back block and validate global minVal if requested
+    for (size_t t=0; t<blockSize; t++)
+        newVec[idx[t]] = blockMass * p_new[t];
+
+    if (minVal > 0.0)
+        {
+        for (size_t i=0; i<newVec.size(); i++)
+            {
+            if (newVec[i] < minVal)
+                {
+                newVec = oldVec;
+                return -1e300;
+                }
+            }
+        }
+
+    if (!isValidSimplex(newVec, 1e-10))
+        Msg::error("updateSimplexALRMVN_blocked: newVec not valid simplex");
+
+    return logH;
+}
+
+static inline bool isValidSimplex(const std::vector<double>& x, double eps) {
+
+    double s = 0.0;
+    for (size_t i=0; i<x.size(); i++)
+        {
+        if (!(x[i] > 0.0))
+            return false;
+        s += x[i];
+        }
+    return std::fabs(s - 1.0) < eps;
+}
+
 double Model::updatePi(void) {
 
     double minVal = 0.00001;
@@ -1134,8 +1306,37 @@ double Model::updatePi(void) {
 
 double Model::updateR(void) {
 
-    updateType = "exchangeability rates";
-    return updateSimplex(r[0], r[1], 10000.0, 1, 0.00001);
+    double minVal = 0.000001;
+
+    // Mixture of simplex kernels:
+    //  - ALR MVN: good for informative posteriors (tight, correlated)
+    //  - Dirichlet subset move (k=1): safe local exploration
+    //  - Mass transfer: cheap polishing move
+    double u = rng->uniformRv();
+    if (u < 0.34)
+        {
+        // tune sigma to get reasonable acceptance (often ~0.05–0.20)
+        if (r[0].size() > 100)
+            {
+            updateType = "exchangeability rates: blocked ALR MVN";
+            return updateSimplexALRMVN(r[0], r[1], 0.001, minVal, 100);
+            }
+        else 
+            {
+            updateType = "exchangeability rates: ALR MVN";
+            return updateSimplexALRMVN(r[0], r[1], 0.001, minVal);
+            }
+        }
+    else if (u < 0.67)
+        {
+        updateType = "exchangeability rates: Dirichlet";
+        return updateSimplex(r[0], r[1], 10000.0, 1, minVal);
+        }
+    else
+        {
+        updateType = "exchangeability rates: mass transfer";
+        return updateSimplexTransfer(r[0], r[1], 300.0, minVal);
+        }
 }
 
 double Model::updateSimplexTransfer(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal) {

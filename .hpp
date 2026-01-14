@@ -1,8 +1,10 @@
 #ifndef TransitionProbabilities_hpp
 #define TransitionProbabilities_hpp
 
+#include <atomic>
 #include <cmath>
 #include <iomanip>
+#include <iostream>
 #include <limits>
 #include <vector>
 #include "Container.hpp"
@@ -59,7 +61,9 @@ class TransitionProbabilitiesTask : public ThreadTask {
             modelType  = gtr;
         }
 
-        // Declaration only - definition in TransitionProbabilities.cpp
+        #if defined(__GNUC__) || defined(__clang__)
+        __attribute__((noinline))
+        #endif
         void init(int i,
                   int n,
                   double v,
@@ -68,9 +72,50 @@ class TransitionProbabilitiesTask : public ThreadTask {
                   const std::vector<double>* piPtr,
                   const std::vector<double>* rPtr,
                   const double kappa,
-                  size_t ugi);
+                  size_t ugi) {
+
+            std::cerr << "    init() entered, this=" << (void*)this << std::endl;
+            std::cerr << "    params: i=" << i << " n=" << n << " v=" << v << std::endl;
+            std::cerr << "    params: q=" << (void*)q << " p=" << (void*)p << std::endl;
+            std::cerr << "    params: piPtr=" << (void*)piPtr << " rPtr=" << (void*)rPtr << std::endl;
+            std::cerr << "    params: kappa=" << kappa << " ugi=" << ugi << std::endl;
+            
+            std::cerr << "    assigning taskId..." << std::endl;
+            this->taskId     = i;
+            std::cerr << "    assigning numStates..." << std::endl;
+            this->numStates  = n;
+            std::cerr << "    assigning brlen..." << std::endl;
+            this->brlen      = v;
+            std::cerr << "    assigning Q..." << std::endl;
+            this->Q          = q;
+            std::cerr << "    assigning P..." << std::endl;
+            this->P          = p;
+            std::cerr << "    assigning pi..." << std::endl;
+            this->pi         = piPtr;
+            std::cerr << "    assigning r..." << std::endl;
+            this->r          = rPtr;
+            std::cerr << "    assigning k..." << std::endl;
+            this->k          = kappa;
+            std::cerr << "    assigning ugandaIdx..." << std::endl;
+            this->ugandaIdx  = ugi;
+            
+            std::cerr << "    init() done" << std::endl;
+            // Memory fence: ensure all writes above are visible to other threads
+            // before this task is pushed to the thread pool
+            std::atomic_thread_fence(std::memory_order_release);
+        }
 
         void run(void) override {
+
+            // Memory fence: ensure all writes from init() are visible
+            std::atomic_thread_fence(std::memory_order_acquire);
+
+            // DEBUG: Print state at start of run
+            std::cerr << "DEBUG run() starting: taskId=" << taskId 
+                      << " numStates=" << numStates 
+                      << " modelType=" << modelType 
+                      << " pi=" << (void*)pi 
+                      << " P=" << (void*)P << std::endl;
 
             if (modelType == jc69)
                 {
@@ -123,22 +168,22 @@ class TransitionProbabilitiesTask : public ThreadTask {
             else if (modelType == custom_f81)
                 {
                 // custom F81
-                double piUganda = (*pi)[ugandaIdx];
-                double oneMinusPiUganda = 1.0 - piUganda;
-                double qInv = 1.0 / oneMinusPiUganda;
+                double p = (*pi)[ugandaIdx];
+                double q = 1.0 - p;
+                double qInv = 1.0 / q;
                 double s = 0.0;
                 for (int i = 0; i < numStates; i++)
                     s += (*pi)[i] * (*pi)[i];
-                double denom = 1.0 - s + 2.0 * (k - 1.0) * piUganda * oneMinusPiUganda;
-                double lambda1 = (-1.0 + (1.0 - k) * piUganda) / denom;
-                double lambda2 = -k / denom;
+                double r = 1.0 - s + 2.0 * (k - 1.0) * p * q;
+                double lambda1 = (-1.0 + (1.0 - k) * p) / r;
+                double lambda2 = -k / r;
                 double exp1 = exp(lambda1 * brlen);
                 double exp2 = exp(lambda2 * brlen);
 
                 // Precompute common terms
                 double one_minus_exp2 = 1.0 - exp2;
-                double q_exp2 = oneMinusPiUganda * exp2;
-                double p_qInv = piUganda * qInv;
+                double q_exp2 = q * exp2;
+                double p_qInv = p * qInv;
 
                 // Case 1: i != ugandaIdx, j != ugandaIdx, off-diagonal (i != j)
                 for (int i = 0; i < numStates; i++) 

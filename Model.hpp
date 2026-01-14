@@ -7,6 +7,7 @@
 #include <vector>
 #include "History.hpp"
 #include "Threads.hpp"
+#include "TransitionProbabilities.hpp"
 class CondLikeJobMngr;
 class History;
 class MetaData;
@@ -32,6 +33,7 @@ class Model {
         int                             getNumStates(void) { return (int)numStates; }
         std::vector<double>&            getPi(void) { return pi[1]; }
         std::vector<double>&            getR(void) { return r[1]; }
+        double                          getKappa(void) { return kappa[1]; }
         RateMatrix*                     getRateMatrix(void) { return q[activeRateMatrix]; }
         double                          getSubstitutionRate(void) { return substitutionRate[1]; }
         Tree*                           getTree(void) { return tree; }
@@ -60,11 +62,13 @@ class Model {
         double                          updateSubstitutionRate(void);
         double                          updatePi(void);
         double                          updateR(void);
+        double                          updateKappa(void);
         void                            updateRateMatrix(void);
         double                          updateSimplexTransfer(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal);
         double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal);
         double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, size_t k, double minVal);
         double                          updateSimplexALRMVN(std::vector<double>& oldVec, std::vector<double>& newVec, double sigma, double minVal);
+        double                          updateSimplexALRMVN(const std::vector<double>& oldVec, std::vector<double>& newVec, double sigma, double minVal, size_t blockSize);
         CondLikeJobMngr*                clManager;
         Tree*                           tree;
         MetaData*                       metaData;
@@ -73,6 +77,7 @@ class Model {
         RateMatrix*                     uniformizedRateMatrix;
         TransitionProbabilitiesMngr*    tiMngr;
         ThreadPool*                     threadPool;
+        SubModel                        modelType;
         size_t                          numStates;
         double*                         condLikes;
         double**                        intervalDwellTimes;
@@ -80,6 +85,8 @@ class Model {
         double                          substitutionRate[2];
         std::vector<double>             pi[2];
         std::vector<double>             r[2];
+        double                          kappa[2];
+        size_t                          ugandaIdx;
         std::vector<RateMatrix*>        matrixPowers;
         int                             activeRateMatrix;
         int                             numIntervals;

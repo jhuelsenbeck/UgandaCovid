@@ -5,7 +5,7 @@
 #include <map>
 #include <vector>
 #include "Container.hpp"
-
+#include "TransitionProbabilities.hpp"
 class GPUMatrixExponentialBatch;
 class Model;
 class ThreadPool;
@@ -40,44 +40,47 @@ enum class TiProbComputeBackend {
 class TransitionProbabilitiesMngr {
 
     public:
-                                    TransitionProbabilitiesMngr(void) = delete;
-                                    TransitionProbabilitiesMngr(const TransitionProbabilitiesMngr& m) = delete;
-                                    TransitionProbabilitiesMngr(Model* m, Tree* t, size_t d, ThreadPool* tp);
-                                   ~TransitionProbabilitiesMngr(void);
-        TransitionProbabilities*    getTiProb(int brlen);
-        void                        printMap(void);
-        void                        updateTransitionProbabilities(void);
+                                        TransitionProbabilitiesMngr(void) = delete;
+                                        TransitionProbabilitiesMngr(const TransitionProbabilitiesMngr& m) = delete;
+                                        TransitionProbabilitiesMngr(Model* m, Tree* t, size_t d, ThreadPool* tp, size_t ugi);
+                                       ~TransitionProbabilitiesMngr(void);
+        TransitionProbabilities*        getTiProb(int brlen);
+        void                            printMap(void);
+        void                            updateTransitionProbabilities(void);
         
         // Backend selection
-        void                        setComputeBackend(TiProbComputeBackend backend) { computeBackend = backend; }
-        TiProbComputeBackend        getComputeBackend(void) const { return computeBackend; }
-        void                        setBatchThreshold(size_t threshold) { batchThreshold = threshold; }
-        size_t                      getBatchThreshold(void) const { return batchThreshold; }
+        void                            setComputeBackend(TiProbComputeBackend backend) { computeBackend = backend; }
+        TiProbComputeBackend            getComputeBackend(void) const { return computeBackend; }
+        void                            setBatchThreshold(size_t threshold) { batchThreshold = threshold; }
+        size_t                          getBatchThreshold(void) const { return batchThreshold; }
         
         // Diagnostics
-        bool                        isGPUAvailable(void) const;
-        const char*                 getGPUDeviceName(void) const;
-        size_t                      getNumUniqueBranchLengths(void) const { return tiMap.size(); }
+        bool                            isGPUAvailable(void) const;
+        const char*                     getGPUDeviceName(void) const;
+        size_t                          getNumUniqueBranchLengths(void) const { return tiMap.size(); }
                 
     private:
-        void                        checkTiProbs(void);
-        void                        updateThreaded(DoubleMatrix* Q);
-        void                        updateBatched(DoubleMatrix* Q);
+        void                            checkTiProbs(void);
+        void                            updateThreaded(DoubleMatrix* Q);
+        void                            updateBatched(DoubleMatrix* Q);
         
-        Model*                      modelPtr;
-        ThreadPool*                 threadPool;
-        GPUMatrixExponentialBatch*  gpuBatcher;
-        size_t                      dim;
-        ti_map                      tiMap;
-        std::pair<int,int>          key;
+        Model*                          modelPtr;
+        ThreadPool*                     threadPool;
+        GPUMatrixExponentialBatch*      gpuBatcher;
+        TransitionProbabilitiesTask*    tasks;
+        size_t                          dim;
+        ti_map                          tiMap;
+        std::pair<int,int>              key;
+        SubModel                        modelType;
+        size_t                          ugandaIdx;
         
         // Batch computation settings
-        TiProbComputeBackend        computeBackend;
-        size_t                      batchThreshold;
+        TiProbComputeBackend            computeBackend;
+        size_t                          batchThreshold;
         
         // Pre-allocated vectors for batch operations (avoid repeated allocation)
-        std::vector<double>         batchBranchLengths;
-        std::vector<DoubleMatrix*>    batchOutputs;
+        std::vector<double>             batchBranchLengths;
+        std::vector<DoubleMatrix*>      batchOutputs;
 };
 
 #endif

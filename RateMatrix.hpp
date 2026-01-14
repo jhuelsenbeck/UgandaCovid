@@ -7,6 +7,7 @@
 #include <vector>
 #include "Container.hpp"
 #include "MathCache.hpp"
+#include "TransitionProbabilities.hpp"
 
 
 
@@ -18,11 +19,12 @@ class RateMatrix : public DoubleMatrix {
                                     RateMatrix(std::vector<std::string> a);
         virtual                    ~RateMatrix(void);
         RateMatrix&                 operator=(const RateMatrix& rhs);
-        void                        set(double* pi, double* r);
+        void                        set(SubModel modelType, double* pi, double* r, double kappa);
         double                      uniformize(RateMatrix* u);
     
     private:
         void                        calculateStationaryFrequencies(double* f);
+        size_t                      ugandaIdx;
         MathCache                   cache;
         std::vector<std::string>    areas;
 

@@ -7,6 +7,17 @@
 RateMatrix::RateMatrix(const RateMatrix& m) : DoubleMatrix(m) {
 
     this->areas = m.areas;
+    ugandaIdx = -1;
+    for (size_t i=0; i<areas.size(); i++)
+        {
+        if (areas[i] == "Uganda")
+            {
+            ugandaIdx = i;
+            break;
+            }
+        }
+    if (ugandaIdx == -1)
+        Msg::error("Could not find Uganda in list of areas");
 }
 
 RateMatrix::RateMatrix(std::vector<std::string> a) : DoubleMatrix(a.size(),a.size()) {
@@ -65,39 +76,127 @@ void RateMatrix::calculateStationaryFrequencies(double* f) {
 		f[i] /= sum;
 }
 
-void RateMatrix::set(double* pi, double* r) {
+void RateMatrix::set(SubModel modelType, double* pi, double* r, double kappa) {
 
-    // set off diagonal elements
-    double* rPtr = r;
-    double averageRate = 0.0;
-    for (size_t i=0; i<numRows; i++)
+    if (modelType == jc69)
         {
-        for (size_t j=i+1; j<numCols; j++)
+        double* pStart = this->begin();
+        double* pEnd = pStart + (numRows*numCols);
+        double off = 1.0 / (numRows - 1);
+        for (double* p=pStart; p!= pEnd; p++)
+            (*p) = off;
+        double* p = pStart;
+        size_t stride = numRows + 1;
+        for (size_t i=0; i<numRows; i++)
             {
-            (*this)(i,j) = (*rPtr) * pi[j];
-            (*this)(j,i) = (*rPtr) * pi[i];
-            averageRate += pi[i] * (*this)(i,j);
-            rPtr++;
+            (*p) = -1.0;
+            p += stride;
             }
         }
-    averageRate *= 2.0;
-
-    // set diagonal elements
-    for (size_t i=0; i<numRows; i++)
+    else if (modelType == f81)
         {
-        double sum = 0.0;
-        for (size_t j=0; j<numCols; j++)
+        // off diagonal 
+        double averageRate = 0.0;
+        for (size_t i=0; i<numRows; i++)
             {
-            if (i != j)
-                sum += (*this)(i,j);
+            for (size_t j=i+1; j<numCols; j++)
+                {
+                (*this)(i,j) = pi[j];
+                (*this)(j,i) = pi[i];
+                averageRate += pi[i] * (*this)(i,j);
+                averageRate += pi[j] * (*this)(j,i);
+                }
             }
-        (*this)(i,i) = -sum;
-        }
 
-    // rescale such that the average rate is one
-    double factor = 1.0 / averageRate;
-    for (auto p=begin(), endP=end(); p != endP; p++)
-        (*p) *= factor;
+        // diagonal elements
+        for (size_t i=0; i<numRows; i++)
+            {
+            double sum = 0.0;
+            for (size_t j=0; j<numCols; j++)
+                {
+                if (i != j)
+                    sum += (*this)(i,j);
+                }
+            (*this)(i,i) = -sum;
+            }
+
+        // rescale such that the average rate is one
+        double factor = 1.0 / averageRate;
+        for (auto p=begin(), endP=end(); p != endP; p++)
+            (*p) *= factor;
+        }
+    else if (modelType == custom_f81)
+        {
+        // off diagonal 
+        double averageRate = 0.0;
+        for (size_t i=0; i<numRows; i++)
+            {
+            for (size_t j=i+1; j<numCols; j++)
+                {
+                (*this)(i,j) = pi[j];
+                (*this)(j,i) = pi[i];
+                if (i == ugandaIdx || j == ugandaIdx)
+                    {
+                    (*this)(i,j) *= kappa;
+                    (*this)(j,i) *= kappa;
+                    }
+                averageRate += pi[i] * (*this)(i,j);
+                averageRate += pi[j] * (*this)(j,i);
+                }
+            }
+
+        // diagonal elements
+        for (size_t i=0; i<numRows; i++)
+            {
+            double sum = 0.0;
+            for (size_t j=0; j<numCols; j++)
+                {
+                if (i != j)
+                    sum += (*this)(i,j);
+                }
+            (*this)(i,i) = -sum;
+            }
+
+        // rescale such that the average rate is one
+        double factor = 1.0 / averageRate;
+        for (auto p=begin(), endP=end(); p != endP; p++)
+            (*p) *= factor;
+        }
+    else 
+        {
+        // gtr
+        // set off diagonal elements
+        double* rPtr = r;
+        double averageRate = 0.0;
+        for (size_t i=0; i<numRows; i++)
+            {
+            for (size_t j=i+1; j<numCols; j++)
+                {
+                (*this)(i,j) = (*rPtr) * pi[j];
+                (*this)(j,i) = (*rPtr) * pi[i];
+                averageRate += pi[i] * (*this)(i,j);
+                rPtr++;
+                }
+            }
+        averageRate *= 2.0;
+
+        // set diagonal elements
+        for (size_t i=0; i<numRows; i++)
+            {
+            double sum = 0.0;
+            for (size_t j=0; j<numCols; j++)
+                {
+                if (i != j)
+                    sum += (*this)(i,j);
+                }
+            (*this)(i,i) = -sum;
+            }
+
+        // rescale such that the average rate is one
+        double factor = 1.0 / averageRate;
+        for (auto p=begin(), endP=end(); p != endP; p++)
+            (*p) *= factor;
+        }
 }
 
 double RateMatrix::uniformize(RateMatrix* u) {

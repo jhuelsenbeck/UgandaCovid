@@ -19,6 +19,7 @@ UserSettings::UserSettings(void) {
     sampleFrequency  = 5;
     mappingFrequency = 2;
     numThreads       = 0;
+    likelihoodModel  = LikelihoodModel::GTR;
 }
 
 std::string UserSettings::arguments(void) {
@@ -42,6 +43,8 @@ std::string UserSettings::arguments(void) {
     str += std::to_string(mappingFrequency) + " ";
     str += "-x ";
     str += std::to_string(numThreads) + " ";
+    str += "-q ";
+    str += getLikelihoodModelString() + " ";
     str += "-r ";
     str += rootDate + " ";
     for (size_t i=0; i<boundaryDates.size(); i++)
@@ -50,6 +53,18 @@ std::string UserSettings::arguments(void) {
         str += boundaryDates[i] + " ";
         }
     return str;
+}
+
+std::string UserSettings::getLikelihoodModelString(void) {
+
+    switch (likelihoodModel)
+        {
+        case LikelihoodModel::JC69:       return "JC69";
+        case LikelihoodModel::F81:        return "F81";
+        case LikelihoodModel::CUSTOM_F81: return "Custom F81";
+        case LikelihoodModel::GTR:        return "GTR";
+        }
+    return "gtr";
 }
 
 bool UserSettings::check(void) {
@@ -101,6 +116,20 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
                 outFile = argument;
             else if (cmd == "-x")
                 numThreads = atoi(argument.c_str());
+            else if (cmd == "-q")
+                {
+                std::string m = argument;
+                if (m == "jc69")
+                    likelihoodModel = LikelihoodModel::JC69;
+                else if (m == "f81")
+                    likelihoodModel = LikelihoodModel::F81;
+                else if (m == "custom_f81")
+                    likelihoodModel = LikelihoodModel::CUSTOM_F81;
+                else if (m == "gtr")
+                    likelihoodModel = LikelihoodModel::GTR;
+                else
+                    Msg::error("Unknown likelihood model \"" + m + "\" (use jc69|f81|custom_f81|gtr)");
+                }
             else if (cmd == "-d")
                 boundaryDates.push_back(argument);
             else if (cmd == "-r")
@@ -121,6 +150,7 @@ void UserSettings::print(void) {
     std::cout << "     Metadata file     = \"" << tsvFile << "\"" << std::endl;
     std::cout << "     Output file       = \"" << outFile << "\"" << std::endl;
     std::cout << "     Parameters file   = \"" << initParmsFile << "\"" << std::endl;
+    std::cout << "     Likelihood model  = " << getLikelihoodModelString() << std::endl;
     std::cout << "     Chain length      = " << chainLength << std::endl;
     std::cout << "     Burn in period    = " << burnIn << std::endl;
     std::cout << "     Print frequency   = " << printFrequency << std::endl;

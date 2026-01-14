@@ -68,7 +68,6 @@ class ThreadPool {
                                 // group atomics together for cache coherence
         std::atomic<size_t>     tasksInFlight;                  // tasks queued + tasks being executed
         std::atomic<bool>       running;                        // 1 byte
-        [[maybe_unused]] char   padding1_[7];                   // explicit padding to next 8-byte boundary
         
                                 // queue management (accessed under lock)
         size_t                  queueHead;                      // next slot to read from
@@ -77,7 +76,6 @@ class ThreadPool {
         
                                 // accessed occasionally
         int                     threadCount;                    // 4 bytes
-        [[maybe_unused]] char   padding2_[4];                   // explicit padding
         std::thread*            threads;
         
                                 // synchronization primitives
