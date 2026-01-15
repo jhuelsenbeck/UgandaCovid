@@ -87,9 +87,9 @@ void Mcmc::run(void) {
         if (n % printFrequency == 0)
             {
             std::cout << ((accept == true) ? "Accepted " : "Rejected ") << "update of " << updateType;
-            std::cout << std::fixed << std::setprecision(10);
-            std::cout << " " << model->getSubstitutionRate();
-            std::cout << std::fixed;
+            //std::cout << std::fixed << std::setprecision(10);
+            //std::cout << " " << model->getSubstitutionRate();
+            //std::cout << std::fixed;
             std::cout << std::endl;
             }
 
@@ -131,6 +131,7 @@ void Mcmc::print(int n, double lnL) {
         parmStrm << "Gen" << '\t';
         parmStrm << "lnL" << '\t';
         parmStrm << "Rate" << '\t';
+        parmStrm << "Kappa" << '\t';
         for (int i=0; i<nStates; i++)
             parmStrm << "Pi[" << i+1 << "]" << '\t';
         for (int i=0; i<nStates; i++)
@@ -144,6 +145,7 @@ void Mcmc::print(int n, double lnL) {
     parmStrm << lnL << '\t';
     parmStrm << std::scientific << std::setprecision(6);
     parmStrm << model->getSubstitutionRate() << '\t';
+    parmStrm << model->getKappa() << '\t';
     for (int i=0; i<nStates; i++)
         parmStrm << pi[i] << '\t';
     for (int i=0, m=(int)r.size(); i<m; i++)
