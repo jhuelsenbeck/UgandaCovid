@@ -71,7 +71,10 @@ int main(int argc, char* argv[]) {
     
     // run the MCMC algorithm
     Mcmc mcmc(&rng, settings.getChainLength(), settings.getBurnIn(), settings.getPrintFrequency(), settings.getSampleFrequency(), settings.getMappingFrequency(), settings.getOutputFile(), &model);
-    mcmc.run();
+    if (settings.computeMarginalLikelihood() == false)
+        mcmc.run();
+    else 
+        mcmc.runPathSampler();
     
     // clean up
     delete threadPool;

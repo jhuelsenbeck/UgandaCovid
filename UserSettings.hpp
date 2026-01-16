@@ -22,6 +22,7 @@ class UserSettings {
                                               static UserSettings singleInstance;
                                               return singleInstance;
                                               }
+        bool                        computeMarginalLikelihood(void) { return computeMarginal; }
         std::vector<std::string>    getBoundaryDates(void) { return boundaryDates; }
         int                         getBurnIn(void) { return burnIn; }
         int                         getChainLength(void) { check(); return chainLength; }
@@ -45,6 +46,7 @@ class UserSettings {
         bool                        userSettingsRead;
         bool                        readFromCheckpoint;
         bool                        variableUgandaRate;
+        bool                        computeMarginal;
         std::string                 treeFile;
         std::string                 tsvFile;
         std::string                 outFile;

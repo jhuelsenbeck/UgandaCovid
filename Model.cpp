@@ -1039,7 +1039,7 @@ double Model::update(void) {
         else 
             {
             lnProposalProb = updatePi();
-            updateRateMatrix();
+            //updateRateMatrix(); // unnecessary b/c ti probabilities are analytical
             }
         }
     else if (modelType == custom_f81)
@@ -1053,7 +1053,7 @@ double Model::update(void) {
         else if (u < 0.666)
             {
             lnProposalProb = updatePi();
-            updateRateMatrix();
+            //updateRateMatrix(); // unnecessary b/c ti probabilities are analytical
             }
         else 
             {
@@ -1066,7 +1066,7 @@ double Model::update(void) {
                 else 
                     lnProposalProb = updateKappaNoLockdown();
                 }
-            updateRateMatrix();
+            //updateRateMatrix(); // unnecessary b/c ti probabilities are analytical
             }
         }
     else 

@@ -10,6 +10,7 @@ UserSettings::UserSettings(void) {
     userSettingsRead   = false;
     readFromCheckpoint = true;
     variableUgandaRate = false;
+    computeMarginal    = false;
     treeFile           = "";
     tsvFile            = "";
     outFile            = "";
@@ -113,7 +114,7 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
                 else 
                     Msg::error("Unknown option " + argument);
                 }
-           else if (cmd == "-u")
+            else if (cmd == "-u")
                 {
                 std::string result = argument;
                 std::transform(result.begin(), result.end(), result.begin(),
@@ -125,7 +126,19 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
                 else 
                     Msg::error("Unknown option " + argument);
                 }
-         else if (cmd == "-n")
+            else if (cmd == "-a")
+                {
+                std::string result = argument;
+                std::transform(result.begin(), result.end(), result.begin(),
+                    [](unsigned char c) { return std::tolower(c); });
+                if (result == "yes")
+                    computeMarginal = true;
+                else if (result == "no")
+                    computeMarginal = false;
+                else 
+                    Msg::error("Unknown option " + argument);
+                }
+            else if (cmd == "-n")
                 chainLength = atoi(argument.c_str());
             else if (cmd == "-b")
                 burnIn = atoi(argument.c_str());
