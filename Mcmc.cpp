@@ -7,9 +7,12 @@
 #include "Mcmc.hpp"
 #include "Model.hpp"
 #include "McmcInfo.hpp"
+#include "McmcPhase.hpp"
 #include "Msg.hpp"
 #include "Node.hpp"
 #include "RandomVariable.hpp"
+#include "SteppingStones.hpp"
+#include "Stone.hpp"
 #include "Tree.hpp"
 
 
@@ -21,8 +24,6 @@ Mcmc::Mcmc(RandomVariable* r, int cl, int bi, int pf, int sf, int mf, std::strin
     checkPointFrequency = 1000;
     checkPointFile = FileManager::getParentPath(parmOutFile);
     checkPointFile += "/check_point.json";
-    std::cout << parmOutFile << std::endl;
-    std::cout << checkPointFile << std::endl;
 }
 
 void Mcmc::closeOutputFiles(void) {
@@ -130,6 +131,101 @@ void Mcmc::run(void) {
         summary[i]->summary();
 }
 
+void Mcmc::runPathSampler(void) {
+
+    SteppingStones stones(64, 0.3, 1.0);
+    McmcPhase mcmcPhases(sampleFrequency * 300, 0, burnIn, sampleFrequency * 100, sampleFrequency);
+
+    std::cout << "   * Running chain" << std::endl;
+
+    // open files for output
+    openOutputFiles();
+    std::cout << "     Opening parameter log file" << std::endl;
+
+    double curLnL = model->lnLikelihood();
+    double curLnP = model->lnPriorProbability();
+    std::cout << "     Initializing likelihood and prior values" << std::endl;
+    
+    McmcInfo info;
+    std::vector<HistorySummary*> summary;
+    for (int i=0; i<model->getNumIntervals(); i++)
+        summary.push_back( new HistorySummary(model->getNumStates()) );
+        
+    std::vector<McmcPhases>& phases = mcmcPhases.getPhases();
+    for (size_t powIdx=0, cnt=1; powIdx<stones.size(); powIdx++)
+        {
+        Stone* stone = stones[powIdx];
+        double power = stone->getPower();
+        for (McmcPhases phase : phases)
+            {
+            for (int n=1; n<=mcmcPhases.getLengthForPhase(powIdx, phase); n++, cnt++)
+                {
+                // propose a new state
+                double lnProposalProbability = model->update();
+                std::string updateType = model->getUpdateType();
+                
+                // calculate the acceptance probability for that state
+                double newLnL = model->lnLikelihood();
+                double newLnP = model->lnPriorProbability();
+                double lnLikelihoodRatio = (newLnL - curLnL) * power;
+                double lnPriorRatio = newLnP - curLnP;
+                 
+                // print (part 1)
+                if (n % printFrequency == 0)
+                    std::cout << "     " << n << " " << cnt << " " << std::setprecision(8) << power << " -- " << std::fixed << std::setprecision(2) << curLnL << " -> " << newLnL << " -- ";
+                
+                // accept or reject
+                double lnR = lnLikelihoodRatio + lnPriorRatio + lnProposalProbability;
+                bool accept = false;
+                if (log(rng->uniformRv()) < lnR)
+                  accept = true;
+                              
+                // adjust the state accordingly
+                 if (accept == true)
+                    {
+                    curLnL = newLnL;
+                    curLnP = newLnP;
+                    model->accept();
+                    info.accept(updateType);
+                    }
+                else
+                    {
+                    model->reject();
+                    info.reject(updateType);
+                    }
+                
+                // print (part 2)
+                if (n % printFrequency == 0)
+                    {
+                    std::cout << ((accept == true) ? "Accepted " : "Rejected ") << "update of " << updateType;
+                    std::cout << std::endl;
+                    }
+
+                // print the current state of the chain to a file
+                if (n == 1 || n % sampleFrequency == 0)
+                    print(n, curLnL, power);
+                    
+                if (n % 1000 == 0)
+                    info.print();
+                    
+                // checkpoint
+                if (n % checkPointFrequency == 0)
+                    model->checkPoint(checkPointFile);
+                }
+            }
+        }
+        
+    // close output files
+    closeOutputFiles();
+    
+    // print summary of proposals
+    info.print();
+    
+    // calculate marginal likelihood
+    double marginalLnL = stones.marginalLikelihood();
+    std::cout << "   * Marginal likelihood = " << marginalLnL << std::endl;
+}
+
 void Mcmc::print(int n, double lnL) {
 
     std::vector<double>& pi = model->getPi();
@@ -160,6 +256,23 @@ void Mcmc::print(int n, double lnL) {
         parmStrm << pi[i] << '\t';
     for (int i=0, m=(int)r.size(); i<m; i++)
         parmStrm << r[i] << '\t';
+    parmStrm << std::endl;
+}
+
+void Mcmc::print(int n, double lnL, double power) {
+
+    if (n == 1)
+        {
+        parmStrm << "Gen" << '\t';
+        parmStrm << "lnL" << '\t';
+        parmStrm << "Power" << '\t';
+        parmStrm << std::endl;
+        }
+    parmStrm << n << '\t';
+    parmStrm << std::fixed << std::setprecision(2);
+    parmStrm << lnL << '\t';
+    parmStrm << std::scientific << std::setprecision(10);
+    parmStrm << power << '\t';
     parmStrm << std::endl;
 }
 

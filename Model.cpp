@@ -59,6 +59,9 @@ Model::Model(RandomVariable* r, Tree* tp, MetaData* md, ThreadPool* thp, CondLik
         case LikelihoodModel::CUSTOM_F81: modelType = custom_f81; break;
         case LikelihoodModel::GTR:        modelType = gtr;        break;
         }
+    variableUgandaRate = settings.isUgandaRateVariable();
+    if (variableUgandaRate == true && modelType != custom_f81)
+        Msg::error("You can only run a variable Uganda rate model with the custom_f81 model");
 
     // set up the model parameters
     initializeParameters(tp, Q);
@@ -104,6 +107,8 @@ void Model::accept(void) {
     pi[0] = pi[1];
     r[0] = r[1];
     kappa[0] = kappa[1];
+    kappaLockdown[0] = kappaLockdown[1];
+    kappaNoLockdown[0] = kappaNoLockdown[1];
 }
 
 void Model::assignNodeStates(RandomVariable* rng) {
@@ -334,6 +339,9 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
     pi[1].resize(numStates);
     std::fill(pi[0].begin(), pi[0].end(), 1.0/numStates);
     pi[1] = pi[0];
+    alphaPi.resize(numStates);
+    for (size_t i=0; i<numStates; i++)
+        alphaPi[i] = 1.0;
     
     // set up exchangeability parameters
     r[0].resize(numStates*(numStates-1)/2);
@@ -344,6 +352,9 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
     for (size_t i=0; i<r[0].size(); i++)
         r[0][i] /= sum;
     r[1] = r[0];
+    alphaR.resize(r[0].size());
+    for (size_t i=0; i<r[0].size(); i++)
+        alphaR[i] = 1.0;
     
     // set up Uganda bias factor
     kappa[0] = 1.0;
@@ -498,15 +509,23 @@ double Model::lnPriorProbability(void) {
     double lnPriorProb = 0.0;
     
     // exponential prior on the substitution rate
-    double expParm = 100.0;
+    double expParm = 1000.0;
     lnPriorProb += Probability::Exponential::lnPdf(expParm, substitutionRate[1]);
     
     // flat Dirichlet distribution on pi
-    lnPriorProb += Probability::Helper::lnGamma(numStates);
+    if (modelType != jc69)
+        lnPriorProb += Probability::Helper::lnGamma(numStates);
 
     // flat Dirichlet distribution on r
-    lnPriorProb += Probability::Helper::lnGamma(r[0].size());
+    if (modelType == gtr)
+        lnPriorProb += Probability::Helper::lnGamma(r[0].size());
     
+    // kappa
+    if (modelType == custom_f81 && variableUgandaRate == false)
+        lnPriorProb += -2.0 * log(1.0 + kappa[0]);
+    else if (modelType == custom_f81 && variableUgandaRate == true)
+        lnPriorProb += (-2.0 * log(1.0 + kappaLockdown[0])) + (-2.0 * log(1.0 + kappaNoLockdown[0]));
+   
     return lnPriorProb;
 }
 
@@ -538,8 +557,7 @@ void Model::loadCheckpont(void) {
         }
 
     // extract values with key checking
-    if (!j.contains("substitutionRate") || !j.contains("kappa") ||
-        !j.contains("pi") || !j.contains("r"))
+    if (!j.contains("substitutionRate") || !j.contains("kappa") || !j.contains("pi") || !j.contains("r"))
         Msg::error("Checkpoint file missing required fields");
     
     double jSubstitionRate = j["substitutionRate"].get<double>();
@@ -645,6 +663,8 @@ void Model::reject(void) {
     pi[1] = pi[0];
     r[1] = r[0];
     kappa[1] = kappa[0];
+    kappaLockdown[1] = kappaLockdown[0];
+    kappaNoLockdown[1] = kappaNoLockdown[0];
     switchActiveRateMatrix();
 }
 
@@ -1013,20 +1033,41 @@ double Model::update(void) {
         // F81
         double u = rng->uniformRv();
         if (u < 0.5)
+            {
             lnProposalProb = updateSubstitutionRate();
+            }
         else 
+            {
             lnProposalProb = updatePi();
+            updateRateMatrix();
+            }
         }
     else if (modelType == custom_f81)
         {
         // Uganda biased F81
         double u = rng->uniformRv();
         if (u < 0.333)
+            {
             lnProposalProb = updateSubstitutionRate();
+            }
         else if (u < 0.666)
+            {
             lnProposalProb = updatePi();
+            updateRateMatrix();
+            }
         else 
-            lnProposalProb = updateKappa();
+            {
+            if (variableUgandaRate == false)
+                lnProposalProb = updateKappa();
+            else 
+                {
+                if (rng->uniformRv() < 0.5)
+                    lnProposalProb = updateKappaLockdown();
+                else 
+                    lnProposalProb = updateKappaNoLockdown();
+                }
+            updateRateMatrix();
+            }
         }
     else 
         {
@@ -1080,9 +1121,27 @@ double Model::updateKappa(void) {
     return log(newValue) - log(oldValue);
 }
 
-// --------------------
-// ALR MVN simplex kernel
-// --------------------
+double Model::updateKappaLockdown(void) {
+
+    updateType = "Uganda migration bias during lockdown";
+    double oldValue = kappaLockdown[0];
+    double tuning = 0.005;
+    double factor = exp((rng->uniformRv()-0.5)*tuning);
+    double newValue = oldValue * factor;
+    kappaLockdown[1] = newValue;
+    return log(newValue) - log(oldValue);
+}
+
+double Model::updateKappaNoLockdown(void) {
+
+    updateType = "Uganda migration bias before and after lockdown";
+    double oldValue = kappaNoLockdown[0];
+    double tuning = 0.005;
+    double factor = exp((rng->uniformRv()-0.5)*tuning);
+    double newValue = oldValue * factor;
+    kappaNoLockdown[1] = newValue;
+    return log(newValue) - log(oldValue);
+}
 
 static inline double randStdNormal_BoxMuller(RandomVariable* rng) {
 
@@ -1285,6 +1344,12 @@ double  Model::updateSimplexALRMVN(const std::vector<double>& oldVec, std::vecto
         Msg::error("updateSimplexALRMVN_blocked: newVec not valid simplex");
 
     return logH;
+}
+
+double Model::updateSimplexPrior(const std::vector<double>& oldVec, std::vector<double>& newVec, std::vector<double>& alpha, double minVal) {
+
+    Probability::Dirichlet::rv(rng, alpha, newVec);
+    return Probability::Dirichlet::lnPdf(alpha, oldVec) - Probability::Dirichlet::lnPdf(alpha, newVec);
 }
 
 static inline bool isValidSimplex(const std::vector<double>& x, double eps) {

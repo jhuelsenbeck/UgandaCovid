@@ -36,6 +36,7 @@ class UserSettings {
         std::string                 getTreeFile(void) { check(); return treeFile; }
         std::string                 getTsvFile(void) { check(); return tsvFile; }
         void                        initializeSettings(int argc, char* argv[]);
+        bool                        isUgandaRateVariable(void) { return variableUgandaRate; }
         void                        print(void);
         bool                        readCheckpointFile(void) { return readFromCheckpoint; }
         
@@ -43,6 +44,7 @@ class UserSettings {
         bool                        check(void);
         bool                        userSettingsRead;
         bool                        readFromCheckpoint;
+        bool                        variableUgandaRate;
         std::string                 treeFile;
         std::string                 tsvFile;
         std::string                 outFile;

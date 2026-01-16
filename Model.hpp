@@ -65,12 +65,15 @@ class Model {
         double                          updatePi(void);
         double                          updateR(void);
         double                          updateKappa(void);
+        double                          updateKappaLockdown(void);
+        double                          updateKappaNoLockdown(void);
         void                            updateRateMatrix(void);
-        double                          updateSimplexTransfer(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal);
         double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal);
         double                          updateSimplex(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, size_t k, double minVal);
+        double                          updateSimplexTransfer(std::vector<double>& oldVec, std::vector<double>& newVec, double alpha0, double minVal);
         double                          updateSimplexALRMVN(std::vector<double>& oldVec, std::vector<double>& newVec, double sigma, double minVal);
         double                          updateSimplexALRMVN(const std::vector<double>& oldVec, std::vector<double>& newVec, double sigma, double minVal, size_t blockSize);
+        double                          updateSimplexPrior(const std::vector<double>& oldVec, std::vector<double>& newVec, std::vector<double>& alpha, double minVal);
         CondLikeJobMngr*                clManager;
         Tree*                           tree;
         MetaData*                       metaData;
@@ -80,6 +83,7 @@ class Model {
         TransitionProbabilitiesMngr*    tiMngr;
         ThreadPool*                     threadPool;
         SubModel                        modelType;
+        bool                            variableUgandaRate;
         size_t                          numStates;
         double*                         condLikes;
         double**                        intervalDwellTimes;
@@ -87,7 +91,11 @@ class Model {
         double                          substitutionRate[2];
         std::vector<double>             pi[2];
         std::vector<double>             r[2];
+        std::vector<double>             alphaPi;
+        std::vector<double>             alphaR;
         double                          kappa[2];
+        double                          kappaLockdown[2];
+        double                          kappaNoLockdown[2];
         size_t                          ugandaIdx;
         std::vector<RateMatrix*>        matrixPowers;
         int                             activeRateMatrix;
