@@ -23,11 +23,13 @@ class Mcmc {
         RandomVariable* rng;
         Model*          model;
         int             chainLength;
+        int             checkPointFrequency;
         int             burnIn;
         int             printFrequency;
         int             sampleFrequency;
         int             mappingFrequency;
         std::string     parmOutFile;
+        std::string     checkPointFile;
         std::ofstream   parmStrm;
 };
 

@@ -28,6 +28,7 @@ class Model {
                                         Model(RandomVariable* r, Tree* tp, MetaData* md, ThreadPool* thp, CondLikeJobMngr* mngr);
                                        ~Model(void);
         void                            accept(void);
+        void                            checkPoint(std::string fileName);
         int***                          getIntervalTransitions(void) { return intervalTransitions; }
         int                             getNumIntervals(void) { return numIntervals; }
         int                             getNumStates(void) { return (int)numStates; }
@@ -54,6 +55,7 @@ class Model {
         void                            initializeMatrixPowers(size_t num);
         void                            initializeParameters(Tree* tp, RateMatrix* m);
         bool                            isValidSimplex(const std::vector<double>& x, double eps=1e-14);
+        void                            loadCheckpont(void);
         void                            printMatrixPowers(void);
         std::vector<Samples*>           readParameterFile(std::string fn);
         int                             sampleHistoriesUsingRejectionSamplign(RandomVariable* rng);

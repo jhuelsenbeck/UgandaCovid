@@ -25,7 +25,6 @@ class UserSettings {
         std::vector<std::string>    getBoundaryDates(void) { return boundaryDates; }
         int                         getBurnIn(void) { return burnIn; }
         int                         getChainLength(void) { check(); return chainLength; }
-        std::string                 getInitialParameterValues(void) { return initParmsFile; }
         LikelihoodModel             getLikelihoodModel(void) { check(); return likelihoodModel; }
         std::string                 getLikelihoodModelString(void);
         int                         getMappingFrequency(void) { return mappingFrequency; }
@@ -38,13 +37,15 @@ class UserSettings {
         std::string                 getTsvFile(void) { check(); return tsvFile; }
         void                        initializeSettings(int argc, char* argv[]);
         void                        print(void);
+        bool                        readCheckpointFile(void) { return readFromCheckpoint; }
+        
     private:
         bool                        check(void);
         bool                        userSettingsRead;
+        bool                        readFromCheckpoint;
         std::string                 treeFile;
         std::string                 tsvFile;
         std::string                 outFile;
-        std::string                 initParmsFile;
         int                         burnIn;
         int                         chainLength;
         int                         printFrequency;

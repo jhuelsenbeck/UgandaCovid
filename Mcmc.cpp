@@ -1,6 +1,7 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
+#include "FileManager.hpp"
 #include "History.hpp"
 #include "HistorySummary.hpp"
 #include "Mcmc.hpp"
@@ -16,7 +17,12 @@
 Mcmc::Mcmc(RandomVariable* r, int cl, int bi, int pf, int sf, int mf, std::string s, Model* m) :
     rng(r), model(m), chainLength(cl), burnIn(bi), printFrequency(pf), sampleFrequency(sf), mappingFrequency(mf), 
     parmOutFile(s) {
-
+    
+    checkPointFrequency = 1000;
+    checkPointFile = FileManager::getParentPath(parmOutFile);
+    checkPointFile += "/check_point.json";
+    std::cout << parmOutFile << std::endl;
+    std::cout << checkPointFile << std::endl;
 }
 
 void Mcmc::closeOutputFiles(void) {
@@ -107,6 +113,10 @@ void Mcmc::run(void) {
             summarizeHistory(summary);
             //summary.addSample(*model->getTree());
             }
+            
+        // checkpoint
+        if (n % checkPointFrequency == 0)
+            model->checkPoint(checkPointFile);
         }
         
     // close output files

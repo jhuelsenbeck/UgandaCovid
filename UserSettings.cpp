@@ -7,19 +7,19 @@
 
 UserSettings::UserSettings(void) {
 
-    userSettingsRead = false;
-    treeFile         = "";
-    tsvFile          = "";
-    outFile          = "";
-    rootDate         = "";
-    initParmsFile    = "";
-    burnIn           = 0;
-    chainLength      = 100;
-    printFrequency   = 1;
-    sampleFrequency  = 5;
-    mappingFrequency = 2;
-    numThreads       = 0;
-    likelihoodModel  = LikelihoodModel::GTR;
+    userSettingsRead   = false;
+    readFromCheckpoint = true;
+    treeFile           = "";
+    tsvFile            = "";
+    outFile            = "";
+    rootDate           = "";
+    burnIn             = 0;
+    chainLength        = 100;
+    printFrequency     = 1;
+    sampleFrequency    = 5;
+    mappingFrequency   = 2;
+    numThreads         = 0;
+    likelihoodModel    = LikelihoodModel::GTR;
 }
 
 std::string UserSettings::arguments(void) {
@@ -101,7 +101,17 @@ void UserSettings::initializeSettings(int argc, char* argv[]) {
             else if (cmd == "-m")
                 tsvFile = argument;
             else if (cmd == "-v")
-                initParmsFile = argument;
+                {
+                std::string result = argument;
+                std::transform(result.begin(), result.end(), result.begin(),
+                    [](unsigned char c) { return std::tolower(c); });
+                if (result == "yes")
+                    readFromCheckpoint = true;
+                else if (result == "no")
+                    readFromCheckpoint = false;
+                else 
+                    Msg::error("Unknown option " + argument);
+                }
             else if (cmd == "-n")
                 chainLength = atoi(argument.c_str());
             else if (cmd == "-b")
@@ -149,7 +159,6 @@ void UserSettings::print(void) {
     std::cout << "     Tree file         = \"" << treeFile << "\"" << std::endl;
     std::cout << "     Metadata file     = \"" << tsvFile << "\"" << std::endl;
     std::cout << "     Output file       = \"" << outFile << "\"" << std::endl;
-    std::cout << "     Parameters file   = \"" << initParmsFile << "\"" << std::endl;
     std::cout << "     Likelihood model  = " << getLikelihoodModelString() << std::endl;
     std::cout << "     Chain length      = " << chainLength << std::endl;
     std::cout << "     Burn in period    = " << burnIn << std::endl;

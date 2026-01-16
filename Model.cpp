@@ -5,7 +5,9 @@
 #include <iomanip>
 #include <limits>
 #include "CondLikeJobMngr.hpp"
+#include "FileManager.hpp"
 #include "History.hpp"
+#include "json.hpp"
 #include "MetaData.hpp"
 #include "Model.hpp"
 #include "Msg.hpp"
@@ -195,6 +197,18 @@ void Model::checkConditionalLikelihoods(void) {
         }
 }
 
+void Model::checkPoint(std::string fileName) {
+
+    nlohmann::json j;
+    j["substitutionRate"] = substitutionRate[0];
+    j["kappa"] = kappa[0];
+    j["pi"] = pi[0];
+    j["r"] = r[0];
+
+    std::ofstream out(fileName);
+    out << j.dump();
+}
+
 void Model::deleteHistories(void) {
 
     std::vector<Node*>& dpSeq = tree->getDownPassSequence();
@@ -311,82 +325,34 @@ void Model::initializeMatrixPowers(size_t num) {
 
 void Model::initializeParameters(Tree* tp, RateMatrix* m) {
     
-    // read a file with initial parameter values
-    bool foundStartingValues = false;
-    UserSettings& settings = UserSettings::getUserSettings();
-    std::vector<double> samplePi;
-    std::vector<double> sampleR;
-    double sampleRate = -1.0;
-    if (settings.getInitialParameterValues() != "")
-        {
-        std::vector<Samples*> samples = readParameterFile(settings.getInitialParameterValues());
-        for (Samples* s : samples)
-            {
-            if (s->getParmName() == "Rate")
-                sampleRate = s->lastSample();
-            else if (s->getParmName() == "R")
-                sampleR.push_back(s->lastSample());
-            else if (s->getParmName() == "Pi")
-                samplePi.push_back(s->lastSample());
-            }
-
-        foundStartingValues = true;
-
-        if (samplePi.size() != numStates)
-            foundStartingValues = false;
-        if (sampleRate < 0.0)
-            foundStartingValues = false;
-        if (sampleR.size() != numStates * (numStates-1) / 2)
-            foundStartingValues = false;
-
-        double sum = 0.0;
-        for (size_t i=0; i<samplePi.size(); i++)
-            sum += samplePi[i];
-        for (size_t i=0; i<samplePi.size(); i++)
-            samplePi[i] /= sum;
-        
-        sum = 0.0;
-        for (size_t i=0; i<sampleR.size(); i++)
-            sum += sampleR[i];
-        for (size_t i=0; i<sampleR.size(); i++)
-            sampleR[i] /= sum;
-        }
-    
     // set colonization rate
-    if (foundStartingValues == true)
-        substitutionRate[0] = sampleRate;
-    else
-        substitutionRate[0] = 0.0001;
+    substitutionRate[0] = 0.0001;
     substitutionRate[1] = substitutionRate[0];
     
     // set up stationary frequencies
     pi[0].resize(numStates);
     pi[1].resize(numStates);
-    if (foundStartingValues == true)
-        pi[0] = samplePi;
-    else
-        std::fill(pi[0].begin(), pi[0].end(), 1.0/numStates);
-    Probability::Helper::normalize(pi[0], 0.001);
+    std::fill(pi[0].begin(), pi[0].end(), 1.0/numStates);
     pi[1] = pi[0];
     
     // set up exchangeability parameters
     r[0].resize(numStates*(numStates-1)/2);
-    if (foundStartingValues == true)
-        r[0] = sampleR;
-    else
-        std::fill(r[0].begin(), r[0].end(), 1.0);
+    std::fill(r[0].begin(), r[0].end(), 1.0);
     double sum = 0.0;
     for (size_t i=0; i<r[0].size(); i++)
         sum += r[0][i];
     for (size_t i=0; i<r[0].size(); i++)
         r[0][i] /= sum;
-    Probability::Helper::normalize(r[0], 0.00001);
     r[1] = r[0];
     
     // set up Uganda bias factor
     kappa[0] = 1.0;
     kappa[1] = kappa[0];
     
+    // see if the values should come from the checkpoint file
+    if (UserSettings::getUserSettings().readCheckpointFile() == true)
+        loadCheckpont();
+        
     // set up the rate matrix and tree
     tree = tp;
     activeRateMatrix = 0;
@@ -542,6 +508,62 @@ double Model::lnPriorProbability(void) {
     lnPriorProb += Probability::Helper::lnGamma(r[0].size());
     
     return lnPriorProb;
+}
+
+void Model::loadCheckpont(void) {
+
+    std::string parmOutFile = UserSettings::getUserSettings().getOutputFile();
+    std::string checkPointFile = FileManager::getParentPath(parmOutFile);
+    checkPointFile += "/check_point.json";
+
+    // check if file exists
+    if (!FileManager::fileExists(checkPointFile))
+        {
+        std::cout << "Checkpoint file not found: " << checkPointFile << std::endl;
+        return;
+        }
+
+    std::ifstream in(checkPointFile);
+    if (!in)
+        Msg::error("Failed to open checkpoint file: " + checkPointFile);
+
+    nlohmann::json j;
+    try
+        {
+        in >> j;
+        }
+    catch (const nlohmann::json::parse_error& e)
+        {
+        Msg::error("Failed to parse checkpoint file: " + std::string(e.what()));
+        }
+
+    // extract values with key checking
+    if (!j.contains("substitutionRate") || !j.contains("kappa") ||
+        !j.contains("pi") || !j.contains("r"))
+        Msg::error("Checkpoint file missing required fields");
+    
+    double jSubstitionRate = j["substitutionRate"].get<double>();
+    double jKappa = j["kappa"].get<double>();
+    std::vector<double> jPi = j["pi"].get<std::vector<double>>();
+    std::vector<double> jR = j["r"].get<std::vector<double>>();
+    
+    substitutionRate[0] = jSubstitionRate;
+    substitutionRate[1] = substitutionRate[0];
+    
+    kappa[0] = jKappa;
+    kappa[1] = kappa[0];
+    
+    if (jPi.size() == pi[0].size())
+        {
+        pi[0] = jPi;
+        pi[1] = pi[0];
+        }
+
+    if (jR.size() == r[0].size())
+        {
+        r[0] = jR;
+        r[1] = r[0];
+        }
 }
 
 void Model::map(void) {
