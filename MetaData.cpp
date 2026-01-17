@@ -119,15 +119,12 @@ void MetaData::assignNodeTimes(Tree* t) {
     for (int i=(int)dpSeq.size()-1; i>=0; i--)
         {
         Node* p = dpSeq[i];
-        if (p == t->getRoot())
-            {
-            p->setTime(rootTime);
-            p->setBrlenExact(0.0);
-            }
-        else
+        if (p != t->getRoot())
             {
             double v = p->getBrlenExact();
-            p->setTime(p->getAncestor()->getTime() + v);
+            if (v < 0.0)
+                Msg::error("Negative branch length");
+            p->setTime( p->getAncestor()->getTime() + v );
             }
         }
         
@@ -220,7 +217,7 @@ void MetaData::assignTimeIntervals(Tree* t, std::vector<std::string> boundaryDat
     
     std::cout << "   * Intervals:" << std::endl;
     for (std::map<std::pair<int,int>,int>::iterator it = intervalInfo.begin(); it != intervalInfo.end(); it++)
-        std::cout << "     " << std::setw(6) << it->first.first << " " << std::setw(6) << it->first.second << " -- " << it->second << std::endl;
+        std::cout << "     " << std::setw(6) << it->first.first << " - " << std::setw(6) << it->first.second << " -- " << it->second << std::endl;
     
     int numFails = 0;
     std::vector<Node*>& dpSeq = t->getDownPassSequence();
@@ -543,61 +540,6 @@ void MetaData::incrementIntervalTimes(Node* p, std::vector<double>& intervalDura
     else
         Msg::error(std::to_string(p->getIntervalIdx()) + " " + std::to_string(p->getAncestor()->getIntervalIdx()) );
 
-}
-
-double MetaData::iterateBranchTimes(Tree* t) {
-
-    int nLowerHits = 0, nUpperHits = 0;
-    std::vector<Node*>& dpSeq = t->getDownPassSequence();
-    for (Node* p : dpSeq)
-        {
-        if (p->getAncestor() != nullptr && p->getGoodTime() == false)
-            {
-            double oldestDescendantTime = p->getOldestDescendant();
-            double ancestorTime = p->getAncestor()->getTime();
-            double x = p->getBrlenExact() + p->getTime();
-            // LCRS iteration over children
-            int numDesc = 0;
-            for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
-                {
-                x -= d->getBrlenExact() - d->getTime();
-                numDesc++;
-                }
-            x /= (1 + numDesc);
-            if (x < ancestorTime || x > oldestDescendantTime)
-                x = pickBestTime(p);
-            p->setTime(x);
-            }
-        }
-    std::cout << "number hits = " << nLowerHits << " " << nUpperHits << std::endl;
-    return sumSquares(t);
-}
-
-double MetaData::iterateBranchTimesUp(Tree* t) {
-
-    std::vector<Node*>& dpSeq = t->getDownPassSequence();
-    for (int i=(int)dpSeq.size()-1; i>=0; i--)
-        {
-        Node* p = dpSeq[i];
-        if (p->getAncestor() != nullptr && p->getGoodTime() == false)
-            {
-            double oldestDescendantTime = p->getOldestDescendant();
-            double ancestorTime = p->getAncestor()->getTime();
-            double x = p->getBrlenExact() + p->getTime();
-            // LCRS iteration over children
-            int numDesc = 0;
-            for (Node* d = p->getFirstChild(); d != nullptr; d = d->getNextSibling())
-                {
-                x -= d->getBrlenExact() - d->getTime();
-                numDesc++;
-                }
-            x /= (1 + numDesc);
-            if (x < ancestorTime || x > oldestDescendantTime)
-                x = pickBestTime(p);
-            p->setTime(x);
-            }
-        }
-    return sumSquares(t);
 }
 
 void MetaData::print(void) {

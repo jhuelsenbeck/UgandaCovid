@@ -17,7 +17,7 @@ struct TransitionProbabilityPair {
     TransitionProbabilities*    tipr[2];
 };
 
-typedef std::map<std::pair<int,int>,TransitionProbabilities*> ti_map;
+typedef std::map<std::tuple<int,int,int>,TransitionProbabilities*> ti_map;
 
 
 // -------------------------------------------------------------------
@@ -70,9 +70,10 @@ class TransitionProbabilitiesMngr {
         TransitionProbabilitiesTask*    tasks;
         size_t                          dim;
         ti_map                          tiMap;
-        std::pair<int,int>              key;
+        std::tuple<int,int,int>         key;
         SubModel                        modelType;
         size_t                          ugandaIdx;
+        bool                            isUgandaRateVariable;
         
         // Batch computation settings
         TiProbComputeBackend            computeBackend;

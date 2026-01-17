@@ -55,6 +55,7 @@ class CondLikeJob : public ThreadTask {
         void                        conditionalLikelihood(void);
         void                        conditionalLikelihoodOptimized(void);
         void                        conditionalLikelihoodPortable(void);
+        inline static constexpr int rescaleFrequency = 64; // must be a power of 2
         
                                     // working buffers (pre-allocated, reused)
         double*                     clSum;          // accumulated log-likelihoods

@@ -214,6 +214,64 @@ void Model::checkPoint(std::string fileName) {
     out << j.dump();
 }
 
+void Model::computeDwellTimes(double t, double tAnc, double* t0, double* t1, double* t2) {
+
+    // defensive: allow caller to pass null, but do something sane
+    double dummy0 = 0.0, dummy1 = 0.0, dummy2 = 0.0;
+    if (t0 == nullptr) t0 = &dummy0;
+    if (t1 == nullptr) t1 = &dummy1;
+    if (t2 == nullptr) t2 = &dummy2;
+
+    *t0 = 0.0;
+    *t1 = 0.0;
+    *t2 = 0.0;
+
+    // Make sure we have an increasing segment [a,b]
+    double a = t;
+    double b = tAnc;
+    if (a > b)
+        std::swap(a, b);
+
+    // Degenerate branch
+    if (b <= a)
+        return;
+
+    interval_map& intervals = metaData->getIntervalMap();
+
+    for (const auto& kv : intervals) {
+
+        const int    sInt = kv.first.first;
+        const int    eInt = kv.first.second;
+        const int    idx  = kv.second;
+
+        // Skip malformed/empty intervals
+        if (eInt <= sInt)
+            continue;
+
+        const double s = static_cast<double>(sInt);
+        const double e = static_cast<double>(eInt);
+
+        // overlap of [a,b] with [s,e] (treating intervals as half-open [s,e))
+        const double left  = std::max(a, s);
+        const double right = std::min(b, e);
+        const double overlap = right - left;
+
+        if (overlap <= 0.0)
+            continue;
+
+        if (idx == 0)
+            *t0 += overlap;
+        else if (idx == 1)
+            *t1 += overlap;
+        else if (idx == 2)
+            *t2 += overlap;
+        else {
+            // If you ever extend to >3 intervals, you can handle it here.
+            // For now, silently ignore unexpected indices.
+        }
+    }
+}
+
 void Model::deleteHistories(void) {
 
     std::vector<Node*>& dpSeq = tree->getDownPassSequence();
@@ -1032,7 +1090,7 @@ double Model::update(void) {
         {
         // F81
         double u = rng->uniformRv();
-        if (u < 0.5)
+        if (u < 0.25)
             {
             lnProposalProb = updateSubstitutionRate();
             }
@@ -1046,11 +1104,11 @@ double Model::update(void) {
         {
         // Uganda biased F81
         double u = rng->uniformRv();
-        if (u < 0.333)
+        if (u < 0.20)
             {
             lnProposalProb = updateSubstitutionRate();
             }
-        else if (u < 0.666)
+        else if (u < 0.80)
             {
             lnProposalProb = updatePi();
             //updateRateMatrix(); // unnecessary b/c ti probabilities are analytical
@@ -1073,9 +1131,9 @@ double Model::update(void) {
         {
         // GTR model
         double u = rng->uniformRv();
-        if (u < 0.333)
+        if (u < 0.20)
             lnProposalProb = updateSubstitutionRate();
-        else if (u < 0.666)
+        else if (u < 0.40)
             {
             lnProposalProb = updatePi();
             updateRateMatrix();

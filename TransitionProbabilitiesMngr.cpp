@@ -16,38 +16,6 @@
 TransitionProbabilitiesMngr::TransitionProbabilitiesMngr(Model* m, Tree* t, size_t d, ThreadPool* tp, size_t ugi) :
     modelPtr(m), dim(d), threadPool(tp), ugandaIdx(ugi) {
 
-    // Initialize GPU batcher singleton
-    gpuBatcher = &GPUMatrixExponentialBatch::getInstance();
-    
-    // Default settings
-    computeBackend = TiProbComputeBackend::Auto;
-    batchThreshold = 8;  // Use batched approach for >= 8 matrices
-    
-    // For large matrices, the batched approach is always better
-    if (dim >= 64)
-        batchThreshold = 4;
-    
-    // allocate matrices for the unique branch lengths
-    std::vector<Node*>& dpSeq = t->getDownPassSequence();
-    for (int i=0, n=(int)dpSeq.size(); i<n; i++)
-        {
-        Node* p = dpSeq[i];
-        int v = p->getBrlen();
-        key.first = v;
-        key.second = 0;
-        ti_map::iterator it = tiMap.find(key);
-        if (it == tiMap.end())
-            {
-            TransitionProbabilities* ti = new TransitionProbabilities(dim);
-            ti->setBrlen(v);
-            tiMap.insert( std::make_pair(key,ti) );
-            }
-        }
-    
-    // Pre-allocate vectors for batch operations
-    batchBranchLengths.reserve(tiMap.size());
-    batchOutputs.reserve(tiMap.size());
-
     // set the transition-probability model from user settings
     UserSettings& settings = UserSettings::getUserSettings();
     switch (settings.getLikelihoodModel())
@@ -57,6 +25,53 @@ TransitionProbabilitiesMngr::TransitionProbabilitiesMngr(Model* m, Tree* t, size
         case LikelihoodModel::CUSTOM_F81: modelType = custom_f81; break;
         case LikelihoodModel::GTR:        modelType = gtr;        break;
         }
+    isUgandaRateVariable = settings.isUgandaRateVariable();
+
+    // initialize GPU batcher singleton
+    gpuBatcher = &GPUMatrixExponentialBatch::getInstance();
+    
+    // default settings
+    computeBackend = TiProbComputeBackend::Auto;
+    batchThreshold = 8;  // Use batched approach for >= 8 matrices
+    
+    // for large matrices, the batched approach is always better
+    if (dim >= 64)
+        batchThreshold = 4;
+    
+    // allocate matrices for the unique branch lengths
+    std::vector<Node*>& dpSeq = t->getDownPassSequence();
+    for (int i=0, n=(int)dpSeq.size(); i<n; i++)
+        {
+        Node* p = dpSeq[i];
+        if (p == t->getRoot())
+            continue;
+            
+        int v = p->getBrlen();
+        
+        if (modelType == custom_f81 && isUgandaRateVariable == true)
+            {
+            double t0=0.0, t1=0.0, t2=0.0;
+            if (p->getAncestor() != nullptr)
+                modelPtr->computeDwellTimes(p->getTime(), p->getAncestor()->getTime(), &t0, &t1, &t2);
+            key = std::make_tuple((int)t0, (int)t1, (int)t2);
+            }
+        else 
+            {
+            key = std::make_tuple(v,0,0);
+            }
+            
+        ti_map::iterator it = tiMap.find(key);
+        if (it == tiMap.end())
+            {
+            TransitionProbabilities* ti = new TransitionProbabilities(dim);
+            ti->setBrlen(v);
+            tiMap.insert( std::make_pair(key,ti) );
+            }
+        }
+            
+    // pre-allocate vectors for batch operations
+    batchBranchLengths.reserve(tiMap.size());
+    batchOutputs.reserve(tiMap.size());
 
     // preallocate the transition probability tasks for threaded calculations
     tasks = new TransitionProbabilitiesTask[tiMap.size()];
@@ -84,7 +99,7 @@ void TransitionProbabilitiesMngr::checkTiProbs(void) {
         {
         TransitionProbabilities* p = it->second;
         size_t n = p->dim();
-        std::cout << "matrix " << it->first.first << " " << it->first.second << std::endl;
+        std::cout << "matrix " << std::get<0>(it->first) << " " << std::get<1>(it->first) << std::endl;
         for (size_t i=0; i<n; i++)
             {
             double sum = 0.0;
@@ -102,8 +117,7 @@ void TransitionProbabilitiesMngr::checkTiProbs(void) {
 
 TransitionProbabilities* TransitionProbabilitiesMngr::getTiProb(int brlen) {
 
-    key.first = brlen;
-    key.second = 0;
+    key = std::make_tuple(brlen,0,0);
     ti_map::iterator it = tiMap.find(key);
     if (it != tiMap.end())
         return it->second;
@@ -126,7 +140,7 @@ void TransitionProbabilitiesMngr::printMap(void) {
 
     for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
         {
-        std::cout << it->first.first << ":" << it->first.second << " (" << it->second << ")" << std::endl;
+        std::cout << std::get<0>(it->first) << ":" << std::get<1>(it->first) << " (" << it->second << ")" << std::endl;
         }
 }
 
@@ -190,12 +204,12 @@ void TransitionProbabilitiesMngr::updateThreaded(DoubleMatrix* Q) {
     int id = 0;
     for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
         {
-        double v = (double)it->first.first * r;
-        if (it->first.first == 0)
+        double v = (double)(std::get<0>(it->first)) * r;
+        if (std::get<0>(it->first) == 0)
             v = MIN_BRLEN;
         it->second->setCalculatedBrlen(v);
 
-        task->init(id, (int)dim, v, (DoubleMatrix*)Q, it->second, &pi, &exch, kappa, ugandaIdx);
+        task->init(id, (int)dim, v, (DoubleMatrix*)Q, it->second, &pi, &exch, kappa, kappa, ugandaIdx);
         threadPool->pushTask(task);
         ++task;
         ++id;
@@ -228,8 +242,8 @@ void TransitionProbabilitiesMngr::updateBatched(DoubleMatrix* Q) {
     
     for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
         {
-        double v = (double)it->first.first * r;
-        if (it->first.first == 0)
+        double v = (double)(std::get<0>(it->first)) * r;
+        if (std::get<0>(it->first) == 0)
             v = MIN_BRLEN;
         it->second->setCalculatedBrlen(v);
         

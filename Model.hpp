@@ -29,6 +29,7 @@ class Model {
                                        ~Model(void);
         void                            accept(void);
         void                            checkPoint(std::string fileName);
+        void                            computeDwellTimes(double t, double tAnc, double* t0, double* t1, double* t2);
         int***                          getIntervalTransitions(void) { return intervalTransitions; }
         int                             getNumIntervals(void) { return numIntervals; }
         int                             getNumStates(void) { return (int)numStates; }

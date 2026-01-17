@@ -43,8 +43,6 @@ class MetaData {
         std::string                 extractAreaInfo(std::vector<std::string>& vec);
         CollectionDate              extractDateInfo(std::string str);
         void                        incrementIntervalTimes(Node* p, std::vector<double>& intervalDurations);
-        double                      iterateBranchTimes(Tree* t);
-        double                      iterateBranchTimesUp(Tree* t);
         double                      pickBestTime(Node* p);
         void                        removeMissingAreas(Tree* t);
         double                      sumSquares(Tree* t);
