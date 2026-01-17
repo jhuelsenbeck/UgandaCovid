@@ -11,11 +11,6 @@
 #include "Threads.hpp"
 #include "Tree.hpp"
 
-// Legacy functions - kept for compatibility
-double factorial(int x);
-int logBase2Plus1(double x);
-int setQvalue(double tol);
-
 // Substitution model used for transition probabilities
 //
 //  jc69        : equal stationary frequencies
@@ -64,6 +59,8 @@ class TransitionProbabilitiesTask : public ThreadTask {
         void init(int i,
                   int n,
                   double v,
+                  double v2,
+                  double v3,
                   DoubleMatrix* q,
                   DoubleMatrix* p,
                   const std::vector<double>* piPtr,
@@ -97,17 +94,21 @@ class TransitionProbabilitiesTask : public ThreadTask {
         void tiProbsF81_Custom(void);
         void tiProbsF81_Custom_Variable(void);
         void setModelType(SubModel mt) { modelType = mt; }
+        void setCustomModelParms(double p, double q, double lambda1, double lambda2, double lambda12, double lambda22);
 
     private:
         int                         taskId;
         int                         numStates;
         double                      brlen;
+        double                      brlen2;
+        double                      brlen3;
         DoubleMatrix*               Q;
         DoubleMatrix*               P;
         const std::vector<double>*  pi;
         const std::vector<double>*  r;
         double                      k;
         double                      k2;
+        double                      p, q, lambda1, lambda2, lambda12, lambda22;
         size_t                      ugandaIdx;
         SubModel                    modelType;
 };

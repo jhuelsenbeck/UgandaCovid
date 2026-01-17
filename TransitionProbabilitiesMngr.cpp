@@ -158,10 +158,10 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(void) {
 
     size_t numMatrices = tiMap.size();
 
-    // Select compute path based on backend setting
+    // select compute path based on backend setting
     bool useBatched = false;
 
-    // Analytic models never use the matrix-exponential backends
+    // analytic models never use the matrix-exponential backends
     if (modelType != gtr)
         useBatched = false;
 
@@ -189,33 +189,86 @@ void TransitionProbabilitiesMngr::updateTransitionProbabilities(void) {
 }
 
 /* Original threaded approach: one task per branch length
- Each task creates exp(Q * brlen) independently */
+   Each task creates exp(Q * brlen) independently */
 void TransitionProbabilitiesMngr::updateThreaded(DoubleMatrix* Q) {
 
-    TransitionProbabilitiesTask* task = tasks;
-
-    // For analytic models we need the current stationary frequencies.
-    // (For GTR this pointer is ignored by TransitionProbabilitiesTask.)
-    const std::vector<double>& pi = modelPtr->getPi();
-    const std::vector<double>& exch = modelPtr->getR();
-    double kappa = modelPtr->getKappa();
-    double r = modelPtr->getSubstitutionRate();
-
-    int id = 0;
-    for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
+    if (modelType == custom_f81 && isUgandaRateVariable == true)
         {
-        double v = (double)(std::get<0>(it->first)) * r;
-        if (std::get<0>(it->first) == 0)
-            v = MIN_BRLEN;
-        it->second->setCalculatedBrlen(v);
+        // variable rates of Uganda transmission
+        TransitionProbabilitiesTask* task = tasks;
 
-        task->init(id, (int)dim, v, (DoubleMatrix*)Q, it->second, &pi, &exch, kappa, kappa, ugandaIdx);
-        threadPool->pushTask(task);
-        ++task;
-        ++id;
+        // For analytic models we need the current stationary frequencies.
+        // (For GTR this pointer is ignored by TransitionProbabilitiesTask.)
+        const std::vector<double>& pi = modelPtr->getPi();
+        const std::vector<double>& exch = modelPtr->getR();
+        double r = modelPtr->getSubstitutionRate();
+        double kappaLockdown = modelPtr->getKappaLockdown();
+        double kappaNoLockdown = modelPtr->getKappaNoLockdown();
+
+        double p = pi[ugandaIdx];
+        double q = 1.0 - p;
+        double s = 0.0;
+        for (size_t i = 0, numStates=pi.size(); i < numStates; ++i)
+            s += pi[i] * pi[i];
+        double r1 = 1.0 - s + 2.0 * (kappaNoLockdown - 1.0) * p * q;
+        double lambda1 = (-1.0 + (1.0 - kappaNoLockdown) * p) / r1;
+        double lambda2 = -kappaNoLockdown / r1;
+        double r2 = 1.0 - s + 2.0 * (kappaLockdown - 1.0) * p * q;
+        double lambda12 = (-1.0 + (1.0 - kappaLockdown) * p) / r2;
+        double lambda22 = -kappaLockdown / r2;
+            
+        int id = 0;
+        for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
+            {
+            int sum = std::get<0>(it->first) + std::get<1>(it->first) + std::get<2>(it->first);
+            double v1 = (double)(std::get<0>(it->first)) * r;
+            double v2 = (double)(std::get<1>(it->first)) * r;
+            double v3 = (double)(std::get<2>(it->first)) * r;
+            if (sum == 0)
+                {
+                v1 = MIN_BRLEN/3.0;
+                v2 = MIN_BRLEN/3.0;
+                v3 = MIN_BRLEN/3.0;
+                }
+            it->second->setCalculatedBrlen(v1 + v2 + v3);
+            task->init(id, (int)dim, v1, v2, v3, (DoubleMatrix*)Q, it->second, &pi, &exch, kappaNoLockdown, kappaLockdown, ugandaIdx);
+            task->setCustomModelParms(p, q, lambda1, lambda2, lambda12, lambda22);
+                
+            threadPool->pushTask(task);
+            ++task;
+            ++id;
+            }
+
+        threadPool->wait();
         }
+    else 
+        {
+        // time-homogeneous models
+        TransitionProbabilitiesTask* task = tasks;
 
-    threadPool->wait();
+        // For analytic models we need the current stationary frequencies.
+        // (For GTR this pointer is ignored by TransitionProbabilitiesTask.)
+        const std::vector<double>& pi = modelPtr->getPi();
+        const std::vector<double>& exch = modelPtr->getR();
+        double kappa = modelPtr->getKappa();
+        double r = modelPtr->getSubstitutionRate();
+            
+        int id = 0;
+        for (ti_map::iterator it = tiMap.begin(); it != tiMap.end(); it++)
+            {
+            double v = (double)(std::get<0>(it->first)) * r;
+            if (std::get<0>(it->first) == 0)
+                v = MIN_BRLEN;
+            it->second->setCalculatedBrlen(v);
+            task->init(id, (int)dim, v, 0.0, 0.0, (DoubleMatrix*)Q, it->second, &pi, &exch, kappa, kappa, ugandaIdx);
+
+            threadPool->pushTask(task);
+            ++task;
+            ++id;
+            }
+
+        threadPool->wait();
+        }
 }
 
 /* Batched approach: all branch lengths processed together
@@ -234,7 +287,7 @@ void TransitionProbabilitiesMngr::updateBatched(DoubleMatrix* Q) {
     if (modelType != gtr)
         Msg::error("Batched transition-probability computation is only valid for gtr");
 
-    // Clear and populate the batch vectors
+    // clear and populate the batch vectors
     batchBranchLengths.clear();
     batchOutputs.clear();
     

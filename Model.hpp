@@ -36,6 +36,8 @@ class Model {
         std::vector<double>&            getPi(void) { return pi[1]; }
         std::vector<double>&            getR(void) { return r[1]; }
         double                          getKappa(void) { return kappa[1]; }
+        double                          getKappaLockdown(void) { return kappaLockdown[1]; }
+        double                          getKappaNoLockdown(void) { return kappaNoLockdown[1]; }
         RateMatrix*                     getRateMatrix(void) { return q[activeRateMatrix]; }
         double                          getSubstitutionRate(void) { return substitutionRate[1]; }
         Tree*                           getTree(void) { return tree; }
