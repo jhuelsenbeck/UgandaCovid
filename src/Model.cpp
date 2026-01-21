@@ -229,25 +229,25 @@ void Model::computeDwellTimes(double t, double tAnc, double* t0, double* t1, dou
     *t1 = 0.0;
     *t2 = 0.0;
 
-    // Make sure we have an increasing segment [a,b]
+    // make sure we have an increasing segment [a,b]
     double a = t;
     double b = tAnc;
     if (a > b)
         std::swap(a, b);
 
-    // Degenerate branch
+    // degenerate branch
     if (b <= a)
         return;
 
     interval_map& intervals = metaData->getIntervalMap();
 
-    for (const auto& kv : intervals) {
+    for (const auto& kv : intervals) 
+        {
+        const int sInt = kv.first.first;
+        const int eInt = kv.first.second;
+        const int idx  = kv.second;
 
-        const int    sInt = kv.first.first;
-        const int    eInt = kv.first.second;
-        const int    idx  = kv.second;
-
-        // Skip malformed/empty intervals
+        // skip malformed/empty intervals
         if (eInt <= sInt)
             continue;
 
@@ -268,11 +268,11 @@ void Model::computeDwellTimes(double t, double tAnc, double* t0, double* t1, dou
             *t1 += overlap;
         else if (idx == 2)
             *t2 += overlap;
-        else {
-            // If you ever extend to >3 intervals, you can handle it here.
-            // For now, silently ignore unexpected indices.
+        else 
+            {
+            // if we ever extend to >3 intervals, we can handle it here.
+            }
         }
-    }
 }
 
 void Model::deleteHistories(void) {
