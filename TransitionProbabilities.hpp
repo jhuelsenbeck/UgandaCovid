@@ -81,7 +81,15 @@ class TransitionProbabilitiesTask : public ThreadTask {
                 }
             else if (modelType == custom_f81)
                 {
-                tiProbsF81_Custom();
+                // Check if this is the variable Uganda rate case (three periods)
+                if (brlen2 > 0.0 || brlen3 > 0.0)
+                    {
+                    tiProbsF81_Custom_Variable();
+                    }
+                else
+                    {
+                    tiProbsF81_Custom();
+                    }
                 }
             else
                 {

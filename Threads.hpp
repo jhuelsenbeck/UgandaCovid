@@ -61,7 +61,7 @@ class ThreadPool {
     private:
         void                    worker(void);
         ThreadTask*             popTask(void);
-        static constexpr size_t queueCapacity = 8192;           // cache-friendly circular buffer for tasks
+        static constexpr size_t queueCapacity = 65536;          // cache-friendly circular buffer for tasks
         static constexpr size_t queueMask = queueCapacity - 1;  // note the size must be power of 2 for fast modulo via bitwise AND
 
                                 // accessed on every push/pop operation

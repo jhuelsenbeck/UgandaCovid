@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <iomanip>
@@ -207,6 +208,8 @@ void Model::checkPoint(std::string fileName) {
     nlohmann::json j;
     j["substitutionRate"] = substitutionRate[0];
     j["kappa"] = kappa[0];
+    j["kappaLockdown"] = kappaLockdown[0];
+    j["kappaNoLockdown"] = kappaNoLockdown[0];
     j["pi"] = pi[0];
     j["r"] = r[0];
 
@@ -318,7 +321,12 @@ void Model::initializeConditionalLikelihoods(void) {
         numAllocatedDoubles += numStates;
         
         // set up the transition probability for the node
-        TransitionProbabilities* tip = tiMngr->getTiProb((*p)->getBrlen());
+        TransitionProbabilities* tip = nullptr;
+        if (modelType == custom_f81 && variableUgandaRate == true) {
+            tip = tiMngr->getTiProb(*p);  // Use the Node* version for custom_f81 with variable Uganda rates
+        } else {
+            tip = tiMngr->getTiProb((*p)->getBrlen());  // Use the simple brlen version for other models
+        }
         if (tip == nullptr)
             {
             std::cout << "Branch Length = " << (*p)->getBrlen() << std::endl;
@@ -418,6 +426,12 @@ void Model::initializeParameters(Tree* tp, RateMatrix* m) {
     kappa[0] = 1.0;
     kappa[1] = kappa[0];
     
+    // set up Uganda bias factors for variable rate model
+    kappaLockdown[0] = 1.0;
+    kappaLockdown[1] = kappaLockdown[0];
+    kappaNoLockdown[0] = 1.0;
+    kappaNoLockdown[1] = kappaNoLockdown[0];
+    
     // see if the values should come from the checkpoint file
     if (UserSettings::getUserSettings().readCheckpointFile() == true)
         loadCheckpont();
@@ -467,17 +481,55 @@ double Model::lnLikelihood(void) {
     double* cl = r->getConditionalLikelihood();
     double* f = &pi[1][0];
     double like = 0.0;
+    
+    // Debug: check for problematic values
+    bool hasNaN = false;
+    bool hasNegative = false;
+    bool hasInf = false;
+    
     for (size_t i=0; i<numStates; i++)
         {
-        like += (*f) * (*cl);
+        double term = (*f) * (*cl);
+        like += term;
+        
+        // Check for numerical issues
+        if (std::isnan(term) || std::isnan(*cl) || std::isnan(*f)) hasNaN = true;
+        if (term < 0.0 || *cl < 0.0 || *f < 0.0) hasNegative = true;
+        if (std::isinf(term) || std::isinf(*cl) || std::isinf(*f)) hasInf = true;
+        
         cl++;
         f++;
         }
+    
+    // Debug output
+    if (hasNaN || hasNegative || hasInf || like <= 0.0) {
+        std::cout << "DEBUG: Likelihood computation issues detected:" << std::endl;
+        std::cout << "  hasNaN: " << hasNaN << std::endl;
+        std::cout << "  hasNegative: " << hasNegative << std::endl;
+        std::cout << "  hasInf: " << hasInf << std::endl;
+        std::cout << "  like: " << like << std::endl;
+        std::cout << "  lnFactor: " << lnFactor << std::endl;
+        
+        // Print root conditional likelihoods and pi values
+        cl = r->getConditionalLikelihood();
+        f = &pi[1][0];
+        std::cout << "  Root conditional likelihoods and pi values:" << std::endl;
+        for (size_t i=0; i<numStates; i++) {
+            std::cout << "    State " << i << ": cl=" << *cl << ", pi=" << *f << ", product=" << (*cl) * (*f) << std::endl;
+            cl++;
+            f++;
+        }
+    }
 
 #   if defined(SHOW_LNL_TIME)
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << std::chrono::duration_cast<std::chrono::seconds>(end-begin).count() << "s" << std::endl;
 #   endif
+
+    if (like <= 0.0) {
+        std::cout << "WARNING: like <= 0.0, returning -inf" << std::endl;
+        return -std::numeric_limits<double>::infinity();
+    }
 
     return log(like) + lnFactor;
 }
@@ -615,11 +667,14 @@ void Model::loadCheckpont(void) {
         }
 
     // extract values with key checking
-    if (!j.contains("substitutionRate") || !j.contains("kappa") || !j.contains("pi") || !j.contains("r"))
+    if (!j.contains("substitutionRate") || !j.contains("kappa") || !j.contains("kappaLockdown") || 
+        !j.contains("kappaNoLockdown") || !j.contains("pi") || !j.contains("r"))
         Msg::error("Checkpoint file missing required fields");
     
     double jSubstitionRate = j["substitutionRate"].get<double>();
     double jKappa = j["kappa"].get<double>();
+    double jldKappa = j["kappaLockdown"].get<double>();
+    double jnldKappa = j["kappaNoLockdown"].get<double>();
     std::vector<double> jPi = j["pi"].get<std::vector<double>>();
     std::vector<double> jR = j["r"].get<std::vector<double>>();
     
@@ -628,6 +683,10 @@ void Model::loadCheckpont(void) {
     
     kappa[0] = jKappa;
     kappa[1] = kappa[0];
+    kappaLockdown[0] = jldKappa;
+    kappaLockdown[1] = kappaLockdown[0];
+    kappaNoLockdown[0] = jnldKappa;
+    kappaNoLockdown[1] = kappaNoLockdown[0];
     
     if (jPi.size() == pi[0].size())
         {

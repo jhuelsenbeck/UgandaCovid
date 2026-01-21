@@ -1,4 +1,7 @@
+#include <iostream>
+#include <iomanip>
 #include <limits>
+#include <cmath>
 #include "GPUMatrixExponentialBatch.hpp"
 #include "Model.hpp"
 #include "Msg.hpp"
@@ -9,7 +12,7 @@
 #include "Tree.hpp"
 #include "UserSettings.hpp"
 
-#define MIN_BRLEN 10e-5
+#define MIN_BRLEN 1.0e-5
 
 
 
@@ -99,7 +102,9 @@ void TransitionProbabilitiesMngr::checkTiProbs(void) {
         {
         TransitionProbabilities* p = it->second;
         size_t n = p->dim();
-        std::cout << "matrix " << std::get<0>(it->first) << " " << std::get<1>(it->first) << std::endl;
+        std::cout << "matrix " << std::get<0>(it->first) << " " << std::get<1>(it->first) << " " << std::get<2>(it->first) << std::endl;
+        
+        bool hasIssues = false;
         for (size_t i=0; i<n; i++)
             {
             double sum = 0.0;
@@ -107,11 +112,35 @@ void TransitionProbabilitiesMngr::checkTiProbs(void) {
                 {
                 double x = (*p)(i,j);
                 sum += x;
-                if (x < 0.0)
+                if (x < 0.0) {
                     Msg::warning("Negative transition probability!!!!!");
+                    hasIssues = true;
                 }
-            std::cout << sum << std::endl;
+                if (std::isnan(x)) {
+                    Msg::warning("NaN transition probability!!!!!");
+                    hasIssues = true;
+                }
+                if (std::isinf(x)) {
+                    Msg::warning("Infinite transition probability!!!!!");
+                    hasIssues = true;
+                }
+                }
+            std::cout << "Row " << i << " sum: " << sum << std::endl;
+            if (std::abs(sum - 1.0) > 1e-10) {
+                std::cout << "WARNING: Row " << i << " sum deviates significantly from 1.0: " << sum << std::endl;
+                hasIssues = true;
             }
+            }
+            
+        if (hasIssues) {
+            std::cout << "Problematic transition matrix:" << std::endl;
+            for (size_t i=0; i<n; i++) {
+                for (size_t j=0; j<n; j++) {
+                    std::cout << std::setw(12) << (*p)(i,j) << " ";
+                }
+                std::cout << std::endl;
+            }
+        }
         }
 }
 
@@ -122,6 +151,25 @@ TransitionProbabilities* TransitionProbabilitiesMngr::getTiProb(int brlen) {
     if (it != tiMap.end())
         return it->second;
     return nullptr;
+}
+
+TransitionProbabilities* TransitionProbabilitiesMngr::getTiProb(Node* node) {
+    
+    if (modelType == custom_f81 && isUgandaRateVariable == true) {
+        // For custom_f81 with variable Uganda rates, compute dwell times
+        double t0=0.0, t1=0.0, t2=0.0;
+        if (node->getAncestor() != nullptr) {
+            modelPtr->computeDwellTimes(node->getTime(), node->getAncestor()->getTime(), &t0, &t1, &t2);
+        }
+        key = std::make_tuple((int)t0, (int)t1, (int)t2);
+        ti_map::iterator it = tiMap.find(key);
+        if (it != tiMap.end())
+            return it->second;
+        return nullptr;
+    } else {
+        // For other models, fall back to the simple branch length lookup
+        return getTiProb(node->getBrlen());
+    }
 }
 
 bool TransitionProbabilitiesMngr::isGPUAvailable(void) const {

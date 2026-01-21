@@ -1,4 +1,5 @@
 #include <cmath>
+#include <limits>
 #include "TransitionProbabilities.hpp"
 
 // TransitionProbabilitiesTask::init() - defined here to ensure single definition (ODR compliance)
@@ -169,6 +170,17 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom_Variable(void) {
 //    double lambda12 = (-1.0 + (1.0 - k2) * p) / r2;
 //    double lambda22 = -k2 / r2;
     
+    // Check for valid parameters
+    if (q <= 0.0 || p <= 0.0) {
+        // Set to identity matrix as fallback
+        for (int i = 0; i < numStates; ++i) {
+            for (int j = 0; j < numStates; ++j) {
+                (*P)(i, j) = (i == j) ? 1.0 : 0.0;
+            }
+        }
+        return;
+    }
+    
     // segment 1 (k, brlen)
     double e11 = std::exp(lambda1 * brlen);
     double e21 = std::exp(lambda2 * brlen);
@@ -194,6 +206,10 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom_Variable(void) {
     double b = b12 * e23;
     double alpha = a12 * alpha3 + alpha12 * e13 + alpha12 * alpha3 * q + p * (1.0 - b12) * (1.0 - e23);
 
+    // Check for numerical issues
+    bool hasNaN = false;
+    bool hasInf = false;
+    
     // fill P 
     for (int i = 0; i < numStates; ++i) 
         {
@@ -216,8 +232,21 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom_Variable(void) {
                 { // i == ugandaIdx && j == ugandaIdx
                 (*P)(i, j) = p + q * b;
                 }
+                
+            // Check for numerical issues
+            if (std::isnan((*P)(i, j))) hasNaN = true;
+            if (std::isinf((*P)(i, j))) hasInf = true;
             }
         }
+        
+    // If we have numerical issues, fall back to identity matrix
+    if (hasNaN || hasInf) {
+        for (int i = 0; i < numStates; ++i) {
+            for (int j = 0; j < numStates; ++j) {
+                (*P)(i, j) = (i == j) ? 1.0 : 0.0;
+            }
+        }
+    }
 }
 
 // Legacy functions - kept for compatibility with any code that might use them

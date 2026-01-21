@@ -8,6 +8,7 @@
 #include "TransitionProbabilities.hpp"
 class GPUMatrixExponentialBatch;
 class Model;
+class Node;
 class ThreadPool;
 class TransitionProbabilities;
 class Tree;
@@ -45,6 +46,7 @@ class TransitionProbabilitiesMngr {
                                         TransitionProbabilitiesMngr(Model* m, Tree* t, size_t d, ThreadPool* tp, size_t ugi);
                                        ~TransitionProbabilitiesMngr(void);
         TransitionProbabilities*        getTiProb(int brlen);
+        TransitionProbabilities*        getTiProb(Node* node);  // For custom_f81 with variable Uganda rates
         void                            printMap(void);
         void                            updateTransitionProbabilities(void);
         
