@@ -36,16 +36,17 @@ Model::Model(RandomVariable* r, Tree* tp, MetaData* md, ThreadPool* thp, CondLik
     numStates = Q->getNumRows();
     updateType = "";
     
-    ugandaIdx = -1;
+    bool foundUganda = false;
     for (size_t i=0; i<numStates; i++)
         {
         if (md->getAreas()[i] == "Uganda")
             {
             ugandaIdx = i;
+            foundUganda = true;
             break;
             }
         }
-    if (ugandaIdx == -1)
+    if (foundUganda == false)
         Msg::error("Could not find the Uganda index");
     
     // check that we can use the SSE instruction set
@@ -528,7 +529,7 @@ double Model::lnLikelihood(void) {
 
     if (like <= 0.0) {
         std::cout << "WARNING: like <= 0.0, returning -inf" << std::endl;
-        return -std::numeric_limits<double>::infinity();
+        return -1e300;
     }
 
     return log(like) + lnFactor;
@@ -1279,7 +1280,7 @@ static inline double sumLogVec(const std::vector<double>& x) {
     for (size_t i=0; i<x.size(); i++)
         {
         if (x[i] <= 0.0)
-            return -std::numeric_limits<double>::infinity();
+            return -1e300;
         s += std::log(x[i]);
         }
     return s;
@@ -1357,7 +1358,7 @@ double Model::updateSimplexALRMVN(std::vector<double>& oldVec, std::vector<doubl
             if (newVec[i] < minVal)
                 {
                 newVec = oldVec;
-                return -std::numeric_limits<double>::infinity();
+                return -1e300;
                 }
             }
         }
@@ -1463,7 +1464,7 @@ double  Model::updateSimplexALRMVN(const std::vector<double>& oldVec, std::vecto
     return logH;
 }
 
-double Model::updateSimplexPrior(const std::vector<double>& oldVec, std::vector<double>& newVec, std::vector<double>& alpha, double minVal) {
+double Model::updateSimplexPrior(const std::vector<double>& oldVec, std::vector<double>& newVec, std::vector<double>& alpha, double ) {
 
     Probability::Dirichlet::rv(rng, alpha, newVec);
     return Probability::Dirichlet::lnPdf(alpha, oldVec) - Probability::Dirichlet::lnPdf(alpha, newVec);

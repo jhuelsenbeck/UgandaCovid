@@ -17,7 +17,7 @@
 
 
 TransitionProbabilitiesMngr::TransitionProbabilitiesMngr(Model* m, Tree* t, size_t d, ThreadPool* tp, size_t ugi) :
-    modelPtr(m), dim(d), threadPool(tp), ugandaIdx(ugi) {
+    modelPtr(m), threadPool(tp), dim(d), ugandaIdx(ugi) {
 
     // set the transition-probability model from user settings
     UserSettings& settings = UserSettings::getUserSettings();

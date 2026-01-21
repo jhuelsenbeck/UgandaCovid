@@ -33,6 +33,7 @@ SOURCES      = main.cpp \
                CondLikeJob.cpp \
                CondLikeJobMngr.cpp \
                Container.cpp \
+               FileManager.cpp \
                GPUMatrixExponentialBatch.cpp \
                History.cpp \
                HistorySummary.cpp \
@@ -40,6 +41,7 @@ SOURCES      = main.cpp \
                MathCacheAccelerated.cpp \
                Mcmc.cpp \
                McmcInfo.cpp \
+               McmcPhase.cpp \
                MetaData.cpp \
                Model.cpp \
                Msg.cpp \
@@ -48,6 +50,8 @@ SOURCES      = main.cpp \
                RandomVariable.cpp \
                RateMatrix.cpp \
                Samples.cpp \
+               SteppingStones.cpp \
+               Stone.cpp \
                Threads.cpp \
                TransitionProbabilities.cpp \
                TransitionProbabilitiesMngr.cpp \

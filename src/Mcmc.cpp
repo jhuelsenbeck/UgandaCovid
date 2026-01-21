@@ -158,7 +158,7 @@ void Mcmc::runPathSampler(void) {
         double power = stone->getPower();
         for (McmcPhases phase : phases)
             {
-            for (int n=1; n<=mcmcPhases.getLengthForPhase(powIdx, phase); n++, cnt++)
+            for (int n=1; n<=(int)mcmcPhases.getLengthForPhase(powIdx, phase); n++, cnt++)
                 {
                 // propose a new state
                 double lnProposalProbability = model->update();

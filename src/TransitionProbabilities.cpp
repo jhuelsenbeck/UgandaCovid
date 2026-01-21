@@ -78,9 +78,9 @@ void TransitionProbabilitiesTask::tiProbsF81(void) {
 
     const double e = std::exp(-mu * brlen);
 
-    for (int i=0; i<numStates; i++)
+    for (size_t i=0; i<numStates; i++)
         {
-        for (int j=0; j<numStates; j++)
+        for (size_t j=0; j<numStates; j++)
             {
             const double pij = (*pi)[j];
             const double delta = (i == j ? 1.0 : 0.0);
@@ -96,7 +96,7 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom(void) {
     double oneMinusPiUganda = 1.0 - piUganda;
     double qInv = 1.0 / oneMinusPiUganda;
     double s = 0.0;
-    for (int i = 0; i < numStates; i++)
+    for (size_t i = 0; i < numStates; i++)
         s += (*pi)[i] * (*pi)[i];
     double denom = 1.0 - s + 2.0 * (k - 1.0) * piUganda * oneMinusPiUganda;
     double lambda1 = (-1.0 + (1.0 - k) * piUganda) / denom;
@@ -110,11 +110,11 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom(void) {
     double p_qInv = piUganda * qInv;
 
     // Case 1: i != ugandaIdx, j != ugandaIdx, off-diagonal (i != j)
-    for (int i = 0; i < numStates; i++) 
+    for (size_t i = 0; i < numStates; i++) 
         {
         if (i == ugandaIdx) 
             continue;
-        for (int j = 0; j < numStates; j++) 
+        for (size_t j = 0; j < numStates; j++) 
             {
             if (j == ugandaIdx || i == j) 
                 continue;
@@ -123,7 +123,7 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom(void) {
         }
 
     // Case 2: i != ugandaIdx, j != ugandaIdx, diagonal (i == j)
-    for (int i = 0; i < numStates; i++) 
+    for (size_t i = 0; i < numStates; i++) 
         {
         if (i == ugandaIdx) 
             continue;
@@ -132,7 +132,7 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom(void) {
 
     // Case 3: i != ugandaIdx, j == ugandaIdx
     double pi_k_one_minus_exp2 = (*pi)[ugandaIdx] * one_minus_exp2;
-    for (int i = 0; i < numStates; i++) 
+    for (size_t i = 0; i < numStates; i++) 
         {
         if (i == ugandaIdx) 
             continue;
@@ -140,7 +140,7 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom(void) {
         }
 
     // Case 4: i == ugandaIdx, j != ugandaIdx
-    for (int j = 0; j < numStates; j++) 
+    for (size_t j = 0; j < numStates; j++) 
         {
         if (j == ugandaIdx) 
             continue;
@@ -156,9 +156,9 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom_Variable(void) {
 
     double p = (*pi)[ugandaIdx];
     double q = 1.0 - p;
-    double s = 0.0;
-    for (int i = 0; i < numStates; ++i)
-        s += (*pi)[i] * (*pi)[i];
+//    double s = 0.0;
+//    for (int i = 0; i < numStates; ++i)
+//        s += (*pi)[i] * (*pi)[i];
 
     // segments 1 & 3 (constants)
 //    double r1 = 1.0 - s + 2.0 * (k - 1.0) * p * q;
@@ -173,8 +173,8 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom_Variable(void) {
     // Check for valid parameters
     if (q <= 0.0 || p <= 0.0) {
         // Set to identity matrix as fallback
-        for (int i = 0; i < numStates; ++i) {
-            for (int j = 0; j < numStates; ++j) {
+        for (size_t i = 0; i < numStates; ++i) {
+            for (size_t j = 0; j < numStates; ++j) {
                 (*P)(i, j) = (i == j) ? 1.0 : 0.0;
             }
         }
@@ -211,9 +211,9 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom_Variable(void) {
     bool hasInf = false;
     
     // fill P 
-    for (int i = 0; i < numStates; ++i) 
+    for (size_t i = 0; i < numStates; ++i) 
         {
-        for (int j = 0; j < numStates; ++j) 
+        for (size_t j = 0; j < numStates; ++j) 
             {
             if (i != ugandaIdx && j != ugandaIdx) 
                 {
@@ -241,8 +241,8 @@ void TransitionProbabilitiesTask::tiProbsF81_Custom_Variable(void) {
         
     // If we have numerical issues, fall back to identity matrix
     if (hasNaN || hasInf) {
-        for (int i = 0; i < numStates; ++i) {
-            for (int j = 0; j < numStates; ++j) {
+        for (size_t i = 0; i < numStates; ++i) {
+            for (size_t j = 0; j < numStates; ++j) {
                 (*P)(i, j) = (i == j) ? 1.0 : 0.0;
             }
         }

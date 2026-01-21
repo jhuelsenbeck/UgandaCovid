@@ -7,16 +7,17 @@
 RateMatrix::RateMatrix(const RateMatrix& m) : DoubleMatrix(m) {
 
     this->areas = m.areas;
-    ugandaIdx = -1;
+    bool foundUganda = false;
     for (size_t i=0; i<areas.size(); i++)
         {
         if (areas[i] == "Uganda")
             {
             ugandaIdx = i;
+            foundUganda = true;
             break;
             }
         }
-    if (ugandaIdx == -1)
+    if (foundUganda == false)
         Msg::error("Could not find Uganda in list of areas");
 }
 

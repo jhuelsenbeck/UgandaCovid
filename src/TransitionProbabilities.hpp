@@ -106,7 +106,7 @@ class TransitionProbabilitiesTask : public ThreadTask {
 
     private:
         int                         taskId;
-        int                         numStates;
+        size_t                      numStates;
         double                      brlen;
         double                      brlen2;
         double                      brlen3;
